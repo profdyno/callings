@@ -45,6 +45,17 @@ Lessons learned building this app — review before touching the parsers or CI.
   iPad at runtime (`xcrun simctl list devices available | grep iPad`).
 - GitHub repo secrets are write-only; they can't be read back or copied
   between repos except by a workflow running inside the source repo.
+- Apple's App Store Connect API refuses everything ("required agreement is
+  missing or has expired") until the account holder re-accepts the yearly
+  Free Apps Agreement in ASC → Business → Agreements. This silently broke
+  the habits weekly build too.
+- App ID *names* (not bundle IDs) reject underscores — "Callings MBB", not
+  "Callings_MBB".
+- `upload_to_testflight` cannot create the App Store Connect app record;
+  it must be created once by hand (ASC → My Apps → +). The public API has
+  no create-app endpoint.
+- Don't trust `gh run watch --exit-status` piped through other commands —
+  check `gh run view --json conclusion` for the real outcome.
 
 ## Data safety
 
