@@ -31,11 +31,19 @@ struct CallingDefinition: Codable, Identifiable, Hashable {
     var organization: OrganizationKind
     /// Sub-heading within the organization in the LCR PDF (e.g. "Priests Quorum Presidency").
     var subgroup: String?
-    /// Sort order within the organization: President first, then counselors, secretary, others.
-    var displayOrder: Int = 100
+    /// Sort order within the organization: President first, then counselors,
+    /// secretary, others. Fractional so user-created callings can slot halfway
+    /// between existing ones.
+    var displayOrder: Double = 100
     var criteria = CandidateCriteria()
     /// True for ward-defined custom callings (prefixed "* " in the LCR export).
     var isCustom: Bool = false
+    /// True for callings created in the app that haven't appeared in an LCR
+    /// import yet — shown in orange until the ward clerk adds them to LCR.
+    /// Optional so data saved before this field existed still decodes.
+    var isPendingLCR: Bool?
+
+    var isPending: Bool { isPendingLCR ?? false }
 
     /// Stable identity for reconciling across imports.
     var importKey: String {

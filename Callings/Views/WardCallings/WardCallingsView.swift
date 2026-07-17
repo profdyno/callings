@@ -6,6 +6,7 @@ struct WardCallingsView: View {
     @Environment(WardStore.self) private var store
     @State private var editingDefinition: CallingDefinition?
     @State private var pickerEntry: OpenCalling?
+    @State private var addingCalling = false
     @State private var path = NavigationPath()
 
     var body: some View {
@@ -36,7 +37,19 @@ struct WardCallingsView: View {
             }
             .navigationTitle(store.data.wardName ?? "Ward Callings")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { FilterBar() }
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        addingCalling = true
+                    } label: {
+                        Label("New Calling", systemImage: "plus")
+                    }
+                }
+                FilterBar()
+            }
+            .sheet(isPresented: $addingCalling) {
+                AddCallingSheet()
+            }
             .navigationDestination(for: OrganizationKind.self) { org in
                 OrganizationView(organization: org)
             }

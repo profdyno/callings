@@ -27,7 +27,7 @@ struct CallingRowView: View {
             } label: {
                 Text(definition?.nameWithinOrganization ?? "—")
                     .font(.subheadline)
-                    .foregroundStyle(openEntry != nil ? Color.red : Color.primary)
+                    .foregroundStyle(callingColor)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .buttonStyle(.plain)
@@ -62,6 +62,13 @@ struct CallingRowView: View {
                 Label("Edit Criteria & Order…", systemImage: "slider.horizontal.3")
             }
         }
+    }
+
+    /// Orange = created in app, pending LCR; red = has an open entry.
+    private var callingColor: Color {
+        if definition?.isPending == true { return .orange }
+        if openEntry != nil { return .red }
+        return .primary
     }
 
     private var holderLabel: String {

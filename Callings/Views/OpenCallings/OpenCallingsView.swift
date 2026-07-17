@@ -7,6 +7,7 @@ struct OpenCallingsView: View {
     @State private var showArchived = false
     @State private var pickerEntry: OpenCalling?
     @State private var editingDefinition: CallingDefinition?
+    @State private var checklistCopied = false
 
     var body: some View {
         NavigationStack {
@@ -26,10 +27,21 @@ struct OpenCallingsView: View {
             .navigationTitle(showArchived ? "Archived Callings" : "Open Callings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                Button {
+                    UIPasteboard.general.string = ActionChecklistBuilder.markdown(from: store)
+                    checklistCopied = true
+                } label: {
+                    Label("Copy Action Checklist", systemImage: "square.and.arrow.up")
+                }
                 Toggle(isOn: $showArchived) {
                     Label("Archived", systemImage: "archivebox")
                 }
                 .toggleStyle(.button)
+            }
+            .alert("Checklist Copied", isPresented: $checklistCopied) {
+                Button("OK") {}
+            } message: {
+                Text("The action checklist is on the clipboard as markdown — paste it into Notes, a message, or an email.")
             }
             .sheet(item: $pickerEntry) { entry in
                 if let definition = definition(for: entry) {
@@ -47,7 +59,7 @@ struct OpenCallingsView: View {
     private struct Row: Identifiable {
         let entry: OpenCalling
         let organization: OrganizationKind
-        let displayOrder: Int
+        let displayOrder: Double
         let callingName: String
         let currentMember: String
         let newMember: String
@@ -116,7 +128,7 @@ struct OpenCallingsView: View {
                     .buttonStyle(.plain)
                     .help("Edit criteria and display order")
                     Text(row.callingName)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(definition(for: row.entry)?.isPending == true ? .orange : .red)
                 }
             }
             .width(min: 180, ideal: 280)

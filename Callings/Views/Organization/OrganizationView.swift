@@ -8,6 +8,7 @@ struct OrganizationView: View {
     let organization: OrganizationKind
     @State private var pickerEntry: OpenCalling?
     @State private var editingDefinition: CallingDefinition?
+    @State private var addingCalling = false
 
     private struct Row: Identifiable {
         let slot: CallingSlot
@@ -44,7 +45,7 @@ struct OrganizationView: View {
                     .help("Edit criteria and display order")
                     VStack(alignment: .leading, spacing: 0) {
                         Text(row.definition.nameWithinOrganization)
-                            .foregroundStyle(row.entry != nil ? Color.red : Color.primary)
+                            .foregroundStyle(row.definition.isPending ? Color.orange : (row.entry != nil ? Color.red : Color.primary))
                         if let subgroup = row.definition.subgroup {
                             Text(subgroup)
                                 .font(.caption2)
@@ -98,6 +99,16 @@ struct OrganizationView: View {
         }
         .navigationTitle(organization.rawValue)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            Button {
+                addingCalling = true
+            } label: {
+                Label("New Calling", systemImage: "plus")
+            }
+        }
+        .sheet(isPresented: $addingCalling) {
+            AddCallingSheet(organization: organization)
+        }
         .sheet(item: $pickerEntry) { entry in
             if let slot = store.slotsByID[entry.slotID],
                let definition = store.definition(for: slot) {

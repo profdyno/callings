@@ -199,6 +199,36 @@ final class WardStore {
         save()
     }
 
+    /// Creates a new calling right after `anchor` in display order, marked
+    /// pending until an LCR import confirms it, with a vacant slot so it
+    /// shows on the ward view immediately.
+    @discardableResult
+    func createCalling(named name: String, after anchor: CallingDefinition) -> CallingSlot {
+        var definition = CallingDefinition(name: name, organization: anchor.organization, subgroup: anchor.subgroup)
+        definition.criteria = anchor.criteria
+        definition.isPendingLCR = true
+
+        // Halfway between the anchor and the next calling in the org's order.
+        let ordered = data.callingDefinitions
+            .filter { $0.organization == anchor.organization }
+            .sorted { $0.displayOrder < $1.displayOrder }
+        if let index = ordered.firstIndex(where: { $0.id == anchor.id }), index + 1 < ordered.count,
+           ordered[index + 1].displayOrder > anchor.displayOrder {
+            definition.displayOrder = (anchor.displayOrder + ordered[index + 1].displayOrder) / 2
+        } else {
+            definition.displayOrder = anchor.displayOrder + 10
+        }
+
+        data.callingDefinitions.append(definition)
+        let slot = CallingSlot(
+            definitionID: definition.id,
+            importOrder: (data.callingSlots.map(\.importOrder).max() ?? 0) + 1
+        )
+        data.callingSlots.append(slot)
+        save()
+        return slot
+    }
+
     // MARK: - Import
 
     func apply(_ newData: WardData) {

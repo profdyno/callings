@@ -133,7 +133,15 @@ enum ImportReconciler {
         var summary = ImportSummary()
         summary.countMismatches = parsed.countMismatches
 
-        // 1. Match or create definitions.
+        // 1. Match or create definitions. An app-created calling that now
+        // appears in the LCR export is confirmed: clear its pending flag so
+        // the PDF slots take over below.
+        let parsedKeys = Set(parsed.rows.map { importKey(for: $0) })
+        for index in data.callingDefinitions.indices
+        where data.callingDefinitions[index].isPending && parsedKeys.contains(data.callingDefinitions[index].importKey) {
+            data.callingDefinitions[index].isPendingLCR = nil
+        }
+
         var definitionsByKey: [String: CallingDefinition] = [:]
         for definition in data.callingDefinitions {
             definitionsByKey[definition.importKey] = definition
@@ -176,6 +184,15 @@ enum ImportReconciler {
                 summary.vacantSlots += 1
             }
             newSlots.append(slot)
+        }
+
+        // App-created callings the export doesn't know about yet keep their
+        // existing slots (same ids, so open entries stay attached).
+        let pendingDefinitionIDs = Set(data.callingDefinitions.filter(\.isPending).map(\.id))
+        for slot in data.callingSlots where pendingDefinitionIDs.contains(slot.definitionID) {
+            var preserved = slot
+            preserved.importOrder = newSlots.count
+            newSlots.append(preserved)
         }
         summary.slotsImported = newSlots.count
 

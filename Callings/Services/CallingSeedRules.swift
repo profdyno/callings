@@ -7,9 +7,9 @@ enum CallingSeedRules {
 
     /// Display order from calling-name keywords: President first, then
     /// counselors, secretary, and the rest, matching the spec's required order.
-    static func displayOrder(for name: String) -> Int {
+    static func displayOrder(for name: String) -> Double {
         let lowered = name.lowercased()
-        let rules: [(keyword: String, order: Int)] = [
+        let rules: [(keyword: String, order: Double)] = [
             ("bishop", 0), ("president", 0),
             ("first counselor", 10), ("first assistant", 10),
             ("second counselor", 20), ("second assistant", 20),

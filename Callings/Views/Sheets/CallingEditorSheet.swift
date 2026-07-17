@@ -16,7 +16,7 @@ struct CallingEditorSheet: View {
             Form {
                 Section("Display") {
                     Stepper(value: $definition.displayOrder, in: 0...200, step: 5) {
-                        LabeledContent("Display sequence", value: "\(definition.displayOrder)")
+                        LabeledContent("Display sequence", value: String(format: "%g", definition.displayOrder))
                     }
                     Text("Lower numbers sort first (President 0, 1st Counselor 10, 2nd Counselor 20, Secretary 30…).")
                         .font(.caption)
