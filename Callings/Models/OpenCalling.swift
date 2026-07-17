@@ -52,7 +52,11 @@ enum CallStatus: String, Codable, CaseIterable, Identifiable {
 struct OpenCalling: Codable, Identifiable, Hashable {
     var id = UUID()
     var slotID: UUID
+    /// Who conducts the call ("Assigned (Call)").
     var assignedTo: BishopricMember = .unassigned
+    /// Who conducts the release ("Assigned (Release)"). Optional so data
+    /// saved before this field existed still decodes; nil = unassigned.
+    var releaseAssignedTo: BishopricMember?
     var releaseStatus: ReleaseStatus = .open
     var memberToBeCalledID: UUID?
     var callStatus: CallStatus = .none

@@ -124,7 +124,20 @@ struct OpenCallingsView: View {
             TableColumn("Current (Release)") { row in
                 ReleaseStatusCell(currentName: row.currentMember, entry: row.entry) { row.entry }
             }
-            .width(min: 150, ideal: 220)
+            .width(min: 150, ideal: 200)
+
+            TableColumn("Assigned (Release)") { row in
+                Menu {
+                    ForEach(BishopricMember.allCases) { member in
+                        Button(member.rawValue) { update(row.entry) { $0.releaseAssignedTo = member } }
+                    }
+                } label: {
+                    let assigned = row.entry.releaseAssignedTo ?? .unassigned
+                    Text(assigned == .unassigned ? "—" : assigned.rawValue)
+                        .foregroundStyle(assigned == .unassigned ? .secondary : .primary)
+                }
+            }
+            .width(min: 85, ideal: 105)
 
             TableColumn("Candidates") { row in
                 CandidatesCell(entry: row.entry, ensureEntry: { row.entry }, openPicker: { entry in
@@ -138,7 +151,7 @@ struct OpenCallingsView: View {
             }
             .width(min: 150, ideal: 190)
 
-            TableColumn("Assigned") { row in
+            TableColumn("Assigned (Call)") { row in
                 Menu {
                     ForEach(BishopricMember.allCases) { member in
                         Button(member.rawValue) { update(row.entry) { $0.assignedTo = member } }
@@ -148,7 +161,7 @@ struct OpenCallingsView: View {
                         .foregroundStyle(row.entry.assignedTo == .unassigned ? .secondary : .primary)
                 }
             }
-            .width(min: 90, ideal: 110)
+            .width(min: 85, ideal: 105)
         }
         .contextMenu(forSelectionType: Row.ID.self) { ids in
             if let id = ids.first {

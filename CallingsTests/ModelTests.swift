@@ -36,6 +36,20 @@ final class ModelTests: XCTestCase {
         XCTAssertFalse(criteria.matches(sister))
     }
 
+    func testOpenCallingDecodesDataSavedBeforeReleaseAssignee() throws {
+        // releaseAssignedTo was added later; older saved entries lack the key.
+        let json = """
+        {"id":"\(UUID().uuidString)","slotID":"\(UUID().uuidString)","assignedTo":"Bishop",
+         "releaseStatus":"Open","callStatus":"—","candidateIDs":[],"notes":"",
+         "createdAt":"2026-01-01T00:00:00Z","isArchived":false}
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let entry = try decoder.decode(OpenCalling.self, from: Data(json.utf8))
+        XCTAssertNil(entry.releaseAssignedTo)
+        XCTAssertEqual(entry.assignedTo, .bishop)
+    }
+
     func testNameWithinOrganizationStripsGroupPrefix() {
         let president = CallingDefinition(name: "Elders Quorum President", organization: .eldersQuorum)
         XCTAssertEqual(president.nameWithinOrganization, "President")

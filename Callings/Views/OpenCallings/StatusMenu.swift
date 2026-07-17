@@ -13,7 +13,14 @@ struct StatusMenu: View {
     var body: some View {
         if let entry {
             VStack(alignment: .leading, spacing: 8) {
-                Picker("Assigned to", selection: binding(\.assignedTo)) {
+                Picker("Assigned (release)", selection: binding(\.releaseAssignedTo)) {
+                    Text(BishopricMember.unassigned.rawValue).tag(BishopricMember?.none)
+                    ForEach(BishopricMember.allCases) { member in
+                        Text(member.rawValue).tag(BishopricMember?.some(member))
+                    }
+                }
+
+                Picker("Assigned (call)", selection: binding(\.assignedTo)) {
                     ForEach(BishopricMember.allCases) { member in
                         Text(member.rawValue).tag(member)
                     }
