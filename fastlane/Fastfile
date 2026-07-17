@@ -68,7 +68,7 @@ platform :ios do
     if bundle_id.nil?
       UI.message("Creating App ID: #{APP_IDENTIFIER}")
       bundle_id = Spaceship::ConnectAPI::BundleId.create(
-        name: "Callings_MBB",
+        name: "Callings MBB",
         identifier: APP_IDENTIFIER,
         platform: Spaceship::ConnectAPI::BundleIdPlatform::IOS
       )
