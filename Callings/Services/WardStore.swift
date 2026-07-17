@@ -113,7 +113,33 @@ final class WardStore {
     func updateOpenCalling(_ entry: OpenCalling) {
         guard let index = data.openCallings.firstIndex(where: { $0.id == entry.id }) else { return }
         data.openCallings[index] = entry
+        completeIfFinished(entry.id)
         save()
+    }
+
+    /// Once the outgoing member's release is Announced and the new member is
+    /// Sustained, the calling has changed hands: show the new member on the
+    /// Ward Callings view and archive the workflow entry. (A vacant seat has
+    /// nobody to release, so its release status stays at none.)
+    private func completeIfFinished(_ entryID: UUID) {
+        guard let index = data.openCallings.firstIndex(where: { $0.id == entryID }) else { return }
+        let entry = data.openCallings[index]
+        guard !entry.isArchived,
+              entry.callStatus == .sustained,
+              entry.releaseStatus == .announced || entry.releaseStatus == .none,
+              let newMemberID = entry.memberToBeCalledID,
+              let slotIndex = data.callingSlots.firstIndex(where: { $0.id == entry.slotID })
+        else { return }
+
+        // Archive first so the snapshot captures the outgoing holder.
+        archiveOpenCalling(entry.id)
+
+        var slot = data.callingSlots[slotIndex]
+        slot.memberID = newMemberID
+        slot.holderNameRaw = member(newMemberID)?.name
+        slot.sustainedDate = .now
+        slot.isSetApart = false
+        data.callingSlots[slotIndex] = slot
     }
 
     func archiveOpenCalling(_ id: UUID, newHolderName: String? = nil) {

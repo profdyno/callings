@@ -1,0 +1,74 @@
+import XCTest
+@testable import Callings
+
+@MainActor
+final class WardStoreTests: XCTestCase {
+
+    private func makeStore() -> (WardStore, CallingSlot, Member, Member) {
+        let store = WardStore(persistence: PersistenceService(filename: "test-\(UUID().uuidString).json"))
+        let old = Member(name: "Old, Holder")
+        let new = Member(name: "New, Holder")
+        let definition = CallingDefinition(name: "Elders Quorum President", organization: .eldersQuorum)
+        let slot = CallingSlot(definitionID: definition.id, memberID: old.id, holderNameRaw: "Old, Holder")
+        var data = WardData()
+        data.members = [old, new]
+        data.callingDefinitions = [definition]
+        data.callingSlots = [slot]
+        store.apply(data)
+        return (store, slot, old, new)
+    }
+
+    func testAnnouncedPlusSustainedMovesNewMemberIntoSlot() {
+        let (store, slot, _, new) = makeStore()
+        var entry = store.openCallingEntry(for: slot)
+        entry.memberToBeCalledID = new.id
+        entry.releaseStatus = .announced
+        entry.callStatus = .sustained
+        store.updateOpenCalling(entry)
+
+        // Ward Callings view now shows the new member in the slot.
+        XCTAssertEqual(store.slotsByID[slot.id]?.memberID, new.id)
+        XCTAssertNotNil(store.slotsByID[slot.id]?.sustainedDate)
+        XCTAssertFalse(store.slotsByID[slot.id]!.isSetApart)
+
+        // The finished entry is archived with a full snapshot.
+        XCTAssertTrue(store.activeOpenCallings.isEmpty)
+        let archived = store.archivedOpenCallings.first
+        XCTAssertEqual(archived?.snapshotPreviousHolder, "Old, Holder")
+        XCTAssertEqual(archived?.snapshotNewHolder, "New, Holder")
+        XCTAssertEqual(archived?.snapshotCallingName, "Elders Quorum President")
+    }
+
+    func testNotCompleteUntilBothStatusesFinish() {
+        let (store, slot, old, new) = makeStore()
+        var entry = store.openCallingEntry(for: slot)
+        entry.memberToBeCalledID = new.id
+        entry.releaseStatus = .released   // not yet announced
+        entry.callStatus = .sustained
+        store.updateOpenCalling(entry)
+
+        XCTAssertEqual(store.slotsByID[slot.id]?.memberID, old.id)
+        XCTAssertEqual(store.activeOpenCallings.count, 1)
+    }
+
+    func testVacantSlotCompletesWithoutRelease() {
+        let store = WardStore(persistence: PersistenceService(filename: "test-\(UUID().uuidString).json"))
+        let new = Member(name: "New, Holder")
+        let definition = CallingDefinition(name: "Elders Quorum Secretary", organization: .eldersQuorum)
+        let slot = CallingSlot(definitionID: definition.id, memberID: nil)
+        var data = WardData()
+        data.members = [new]
+        data.callingDefinitions = [definition]
+        data.callingSlots = [slot]
+        store.apply(data)
+
+        var entry = store.openCallingEntry(for: slot)
+        XCTAssertEqual(entry.releaseStatus, .none)
+        entry.memberToBeCalledID = new.id
+        entry.callStatus = .sustained
+        store.updateOpenCalling(entry)
+
+        XCTAssertEqual(store.slotsByID[slot.id]?.memberID, new.id)
+        XCTAssertTrue(store.activeOpenCallings.isEmpty)
+    }
+}
