@@ -60,14 +60,16 @@ struct OrganizationView: View {
                     store.openCallingEntry(for: row.slot)
                 }
             }
-            .width(min: 160, ideal: 220)
+            .width(min: 150, ideal: 200)
 
-            TableColumn("To Be Called (Status)") { row in
-                ToBeCalledCell(entry: row.entry) {
-                    store.openCallingEntry(for: row.slot)
+            TableColumn("Assigned (Release)") { row in
+                AssignedCell(assigned: row.entry?.releaseAssignedTo) { member in
+                    var updated = store.openCallingEntry(for: row.slot)
+                    updated.releaseAssignedTo = member
+                    store.updateOpenCalling(updated)
                 }
             }
-            .width(min: 160, ideal: 220)
+            .width(min: 85, ideal: 105)
 
             TableColumn("Candidates") { row in
                 CandidatesCell(entry: row.entry, ensureEntry: {
@@ -76,7 +78,23 @@ struct OrganizationView: View {
                     pickerEntry = entry
                 })
             }
-            .width(min: 180)
+            .width(min: 160)
+
+            TableColumn("To Be Called (Status)") { row in
+                ToBeCalledCell(entry: row.entry) {
+                    store.openCallingEntry(for: row.slot)
+                }
+            }
+            .width(min: 150, ideal: 190)
+
+            TableColumn("Assigned (Call)") { row in
+                AssignedCell(assigned: row.entry?.assignedTo) { member in
+                    var updated = store.openCallingEntry(for: row.slot)
+                    updated.assignedTo = member
+                    store.updateOpenCalling(updated)
+                }
+            }
+            .width(min: 85, ideal: 105)
         }
         .navigationTitle(organization.rawValue)
         .navigationBarTitleDisplayMode(.inline)

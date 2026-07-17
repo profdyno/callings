@@ -91,6 +91,26 @@ struct ToBeCalledCell: View {
     }
 }
 
+/// Bishopric-member assignment dropdown (used for both the release and the
+/// call assignment columns).
+struct AssignedCell: View {
+    let assigned: BishopricMember?
+    let onSelect: (BishopricMember) -> Void
+
+    var body: some View {
+        Menu {
+            ForEach(BishopricMember.allCases) { member in
+                Button(member.rawValue) { onSelect(member) }
+            }
+        } label: {
+            let value = assigned ?? .unassigned
+            Text(value == .unassigned ? "—" : value.rawValue)
+                .foregroundStyle(value == .unassigned ? .secondary : .primary)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 /// Candidate names; tapping opens the candidate picker (starting the entry
 /// when needed).
 struct CandidatesCell: View {

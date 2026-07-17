@@ -127,14 +127,8 @@ struct OpenCallingsView: View {
             .width(min: 150, ideal: 200)
 
             TableColumn("Assigned (Release)") { row in
-                Menu {
-                    ForEach(BishopricMember.allCases) { member in
-                        Button(member.rawValue) { update(row.entry) { $0.releaseAssignedTo = member } }
-                    }
-                } label: {
-                    let assigned = row.entry.releaseAssignedTo ?? .unassigned
-                    Text(assigned == .unassigned ? "—" : assigned.rawValue)
-                        .foregroundStyle(assigned == .unassigned ? .secondary : .primary)
+                AssignedCell(assigned: row.entry.releaseAssignedTo) { member in
+                    update(row.entry) { $0.releaseAssignedTo = member }
                 }
             }
             .width(min: 85, ideal: 105)
@@ -152,13 +146,8 @@ struct OpenCallingsView: View {
             .width(min: 150, ideal: 190)
 
             TableColumn("Assigned (Call)") { row in
-                Menu {
-                    ForEach(BishopricMember.allCases) { member in
-                        Button(member.rawValue) { update(row.entry) { $0.assignedTo = member } }
-                    }
-                } label: {
-                    Text(row.entry.assignedTo == .unassigned ? "—" : row.entry.assignedTo.rawValue)
-                        .foregroundStyle(row.entry.assignedTo == .unassigned ? .secondary : .primary)
+                AssignedCell(assigned: row.entry.assignedTo) { member in
+                    update(row.entry) { $0.assignedTo = member }
                 }
             }
             .width(min: 85, ideal: 105)
