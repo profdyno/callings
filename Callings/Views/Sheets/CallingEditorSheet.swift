@@ -5,6 +5,7 @@ struct CallingEditorSheet: View {
     @Environment(WardStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State var definition: CallingDefinition
+    @State private var confirmingDelete = false
 
     private let knownClasses = [
         "Gatherers of Light", "Messengers of Hope", "Builders of Faith",
@@ -39,6 +40,26 @@ struct CallingEditorSheet: View {
                     Toggle("Allow members who already have a calling", isOn: $definition.criteria.allowMultipleCallings)
                 }
 
+                Section {
+                    if definition.isMarkedForDeletion {
+                        Button("Cancel Deletion") {
+                            store.cancelDeletion(of: definition)
+                            dismiss()
+                        }
+                    } else {
+                        Button("Delete Calling…", role: .destructive) {
+                            confirmingDelete = true
+                        }
+                    }
+                } footer: {
+                    if !definition.isMarkedForDeletion {
+                        Text(definition.isPending
+                             ? "This calling was created in the app and hasn't been added to LCR — deleting removes it immediately."
+                             : "This calling exists in LCR. Deleting marks it in red with a strikethrough and adds a ward-clerk action; it's removed for good when a future import no longer contains it. The current holder, if any, is added to Open Callings for release.")
+                        .font(.caption)
+                    }
+                }
+
                 Section("Required Class / Quorum") {
                     ForEach(knownClasses, id: \.self) { className in
                         let isOn = definition.criteria.requiredClassAssignments.contains(className)
@@ -66,6 +87,16 @@ struct CallingEditorSheet: View {
             }
             .navigationTitle(definition.name)
             .navigationBarTitleDisplayMode(.inline)
+            .confirmationDialog(
+                definition.isPending ? "Delete \(definition.name)?" : "Delete \(definition.name) from the ward organization?",
+                isPresented: $confirmingDelete,
+                titleVisibility: .visible
+            ) {
+                Button("Delete Calling", role: .destructive) {
+                    store.requestDeletion(of: definition)
+                    dismiss()
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

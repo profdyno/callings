@@ -46,6 +46,29 @@ struct ImportView: View {
                     Text("Save the \"Ward Callings\" and \"Member List for Callings\" PDFs from lcr.churchofjesuschrist.org, then pick them here or drop them into this app's import folder in the Files app. The file type is detected automatically.")
                 }
 
+                let placeholders = store.data.members.filter(\.isPlaceholder)
+                if !placeholders.isEmpty {
+                    Section {
+                        ForEach(placeholders) { member in
+                            VStack(alignment: .leading, spacing: 1) {
+                                Label(member.name, systemImage: "person.crop.circle.badge.questionmark")
+                                let callings = store.slots(heldBy: member.id)
+                                    .compactMap { store.definition(for: $0)?.name }
+                                if !callings.isEmpty {
+                                    Text(callings.joined(separator: ", "))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .padding(.leading, 28)
+                                }
+                            }
+                        }
+                    } header: {
+                        Text("Calling Holders Not on the Roster")
+                    } footer: {
+                        Text("These names from the Ward Callings import didn't match anyone in the member list — often out-of-unit callings, or a name spelled differently between the two reports.")
+                    }
+                }
+
                 if let errorMessage {
                     Section {
                         Text(errorMessage).foregroundStyle(.red)

@@ -45,7 +45,12 @@ struct OrganizationView: View {
                     .help("Edit criteria and display order")
                     VStack(alignment: .leading, spacing: 0) {
                         Text(row.definition.nameWithinOrganization)
-                            .foregroundStyle(row.definition.isPending ? Color.orange : (row.entry != nil ? Color.red : Color.primary))
+                            .strikethrough(row.definition.isMarkedForDeletion)
+                            .foregroundStyle(
+                                row.definition.isMarkedForDeletion ? Color.red
+                                : row.definition.isPending ? Color.orange
+                                : (row.entry != nil ? Color.red : Color.primary)
+                            )
                         if let subgroup = row.definition.subgroup {
                             Text(subgroup)
                                 .font(.caption2)

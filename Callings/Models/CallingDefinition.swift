@@ -45,6 +45,13 @@ struct CallingDefinition: Codable, Identifiable, Hashable {
 
     var isPending: Bool { isPendingLCR ?? false }
 
+    /// True when the user deleted an LCR-backed calling in the app: shown
+    /// struck through in red until the ward clerk removes it in LCR and a
+    /// re-import no longer contains it. Optional for decode compatibility.
+    var isPendingDeletion: Bool?
+
+    var isMarkedForDeletion: Bool { isPendingDeletion ?? false }
+
     /// Stable identity for reconciling across imports.
     var importKey: String {
         "\(organization.rawValue)|\(subgroup ?? "")|\(name)".lowercased()

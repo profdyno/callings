@@ -199,6 +199,35 @@ final class WardStore {
         save()
     }
 
+    /// Deletes a calling. App-created callings that LCR never confirmed are
+    /// removed outright. LCR-backed callings are marked for deletion (struck
+    /// through in red, with a ward-clerk checklist action) until a re-import
+    /// no longer contains them; any current holder gets an open-callings
+    /// entry so their release can be assigned and tracked.
+    func requestDeletion(of definition: CallingDefinition) {
+        guard let index = data.callingDefinitions.firstIndex(where: { $0.id == definition.id }) else { return }
+        let slots = data.callingSlots.filter { $0.definitionID == definition.id }
+
+        if definition.isPending {
+            let slotIDs = Set(slots.map(\.id))
+            data.openCallings.removeAll { slotIDs.contains($0.slotID) && !$0.isArchived }
+            data.callingSlots.removeAll { slotIDs.contains($0.id) }
+            data.callingDefinitions.remove(at: index)
+        } else {
+            data.callingDefinitions[index].isPendingDeletion = true
+            for slot in slots where slot.memberID != nil {
+                openCallingEntry(for: slot)
+            }
+        }
+        save()
+    }
+
+    func cancelDeletion(of definition: CallingDefinition) {
+        guard let index = data.callingDefinitions.firstIndex(where: { $0.id == definition.id }) else { return }
+        data.callingDefinitions[index].isPendingDeletion = nil
+        save()
+    }
+
     /// Creates a new calling right after `anchor` in display order, marked
     /// pending until an LCR import confirms it, with a vacant slot so it
     /// shows on the ward view immediately.

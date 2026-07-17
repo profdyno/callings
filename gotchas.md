@@ -62,3 +62,9 @@ Lessons learned building this app — review before touching the parsers or CI.
 - `import/*.pdf` and `screenshots/` contain real member PII — gitignored,
   never commit. Test fixtures against real PDFs use `XCTSkipUnless` on the
   local file path so CI (no PDFs) skips them.
+- **The roster PDF's font maps ligature glyphs to wrong letters**: "ﬀ"
+  extracts as 'g' ("Jeff"→"Jeg") and "ﬂ" as 'j' ("Shiflett"→"Shijett") —
+  this silently created 8 false placeholder members. Repaired by glyph
+  geometry in `MemberListParser.correctingLigatures` (ligature glyphs are
+  ~25%+ wider than the real letters); thresholds are calibrated to the
+  report's body font and guarded by height to skip the footer font.

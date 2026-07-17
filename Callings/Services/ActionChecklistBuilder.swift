@@ -57,16 +57,21 @@ enum ActionChecklistBuilder {
             lines.append(contentsOf: assigned.map(\.text))
         }
 
-        // App-created callings the ward clerk still needs to enter in LCR.
-        let pending = store.data.callingDefinitions
-            .filter(\.isPending)
+        // LCR bookkeeping for the ward clerk: callings created or deleted in
+        // the app that LCR doesn't reflect yet.
+        let clerkWork = store.data.callingDefinitions
+            .filter { $0.isPending || $0.isMarkedForDeletion }
             .sorted { $0.organization.displayOrder != $1.organization.displayOrder
                 ? $0.organization.displayOrder < $1.organization.displayOrder
                 : $0.displayOrder < $1.displayOrder }
-        if !pending.isEmpty {
+        if !clerkWork.isEmpty {
             lines.append("")
             lines.append("**Ward Clerk**")
-            lines.append(contentsOf: pending.map { "- [ ] Add to LCR — \($0.name) (\($0.organization.rawValue))" })
+            lines.append(contentsOf: clerkWork.map {
+                $0.isMarkedForDeletion
+                    ? "- [ ] Delete from LCR — \($0.name) (\($0.organization.rawValue))"
+                    : "- [ ] Add to LCR — \($0.name) (\($0.organization.rawValue))"
+            })
         }
 
         return lines.joined(separator: "\n")

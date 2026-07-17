@@ -142,6 +142,29 @@ enum ImportReconciler {
             data.callingDefinitions[index].isPendingLCR = nil
         }
 
+        // A deletion-marked calling the export no longer contains has been
+        // removed in LCR: archive its remaining open entries and drop it.
+        let deletedDefinitions = data.callingDefinitions.filter {
+            $0.isMarkedForDeletion && !parsedKeys.contains($0.importKey)
+        }
+        if !deletedDefinitions.isEmpty {
+            let deletedIDs = Set(deletedDefinitions.map(\.id))
+            let deletedSlotIDs = Set(data.callingSlots.filter { deletedIDs.contains($0.definitionID) }.map(\.id))
+            let members = Dictionary(uniqueKeysWithValues: data.members.map { ($0.id, $0) })
+            for index in data.openCallings.indices
+            where !data.openCallings[index].isArchived && deletedSlotIDs.contains(data.openCallings[index].slotID) {
+                let slot = data.callingSlots.first { $0.id == data.openCallings[index].slotID }
+                let definition = deletedDefinitions.first { $0.id == slot?.definitionID }
+                data.openCallings[index].isArchived = true
+                data.openCallings[index].archivedAt = .now
+                data.openCallings[index].snapshotCallingName = definition?.name
+                data.openCallings[index].snapshotOrganization = definition?.organization.rawValue
+                data.openCallings[index].snapshotPreviousHolder = slot?.memberID.flatMap { members[$0]?.name } ?? slot?.holderNameRaw
+                summary.openCallingsArchived.append("\(definition?.name ?? "?") (deleted)")
+            }
+            data.callingDefinitions.removeAll { deletedIDs.contains($0.id) }
+        }
+
         var definitionsByKey: [String: CallingDefinition] = [:]
         for definition in data.callingDefinitions {
             definitionsByKey[definition.importKey] = definition

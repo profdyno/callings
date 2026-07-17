@@ -27,6 +27,7 @@ struct CallingRowView: View {
             } label: {
                 Text(definition?.nameWithinOrganization ?? "—")
                     .font(.subheadline)
+                    .strikethrough(definition?.isMarkedForDeletion == true)
                     .foregroundStyle(callingColor)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -64,8 +65,10 @@ struct CallingRowView: View {
         }
     }
 
-    /// Orange = created in app, pending LCR; red = has an open entry.
+    /// Red strikethrough = deleted, awaiting LCR removal; orange = created
+    /// in app, pending LCR; red = has an open entry.
     private var callingColor: Color {
+        if definition?.isMarkedForDeletion == true { return .red }
         if definition?.isPending == true { return .orange }
         if openEntry != nil { return .red }
         return .primary

@@ -77,5 +77,11 @@ final class ParserTests: XCTestCase {
         // Row split across a page break (name on the following page)
         let weston = list.members.first { $0.name == "Porter, Weston Glenwood" }
         XCTAssertEqual(weston?.age, 13)
+
+        // The report's font maps ﬀ→'g' and ﬂ→'j'; geometry repair fixes them.
+        let names = Set(list.members.map(\.name))
+        XCTAssertTrue(names.contains("Dickman, Jeff"), "ﬀ ligature repaired")
+        XCTAssertTrue(names.contains("Shiflett, Becky"), "ﬂ ligature repaired")
+        XCTAssertFalse(names.contains { $0.contains("Jeg") || $0.contains("jett,") })
     }
 }

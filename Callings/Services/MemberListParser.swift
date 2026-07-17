@@ -60,7 +60,7 @@ enum MemberListParser {
 
         for pageIndex in 0..<document.pageCount {
             guard let page = document.page(at: pageIndex) else { continue }
-            let lines = PDFTableExtractor.lines(from: page)
+            let lines = correctingLigatures(PDFTableExtractor.lines(from: page))
 
             var headerBottomY = CGFloat.greatestFiniteMagnitude
             if let (found, bottom) = findBands(in: lines) {
@@ -114,6 +114,29 @@ enum MemberListParser {
             }
         }
         return result
+    }
+
+    /// This report's embedded font maps ligature glyphs to wrong characters:
+    /// "ﬀ" extracts as 'g' ("Jeff" → "Jeg") and "ﬂ" as 'j' ("Shiflett" →
+    /// "Shijett"). The ligature glyphs are much wider than the real letters
+    /// at body size (g ≈3.8pt vs ≈4.75; j ≈1.8pt vs ≈4.1), so repair by
+    /// glyph geometry. The height guard skips the smaller footer font, whose
+    /// real 'g' is wide enough to trip the threshold.
+    private static func correctingLigatures(_ lines: [PDFTableExtractor.TextLine]) -> [PDFTableExtractor.TextLine] {
+        lines.map { line in
+            var line = line
+            line.glyphs = line.glyphs.map { glyph in
+                guard glyph.frame.height > 9 else { return glyph }
+                if glyph.text == "g", glyph.frame.width > 4.3 {
+                    return PDFTableExtractor.Glyph(text: "ff", frame: glyph.frame)
+                }
+                if glyph.text == "j", glyph.frame.width > 3.0 {
+                    return PDFTableExtractor.Glyph(text: "fl", frame: glyph.frame)
+                }
+                return glyph
+            }
+            return line
+        }
     }
 
     /// Locates the column-header block (first page) and returns bands plus the

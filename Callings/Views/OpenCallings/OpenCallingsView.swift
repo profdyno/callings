@@ -127,8 +127,10 @@ struct OpenCallingsView: View {
                     }
                     .buttonStyle(.plain)
                     .help("Edit criteria and display order")
+                    let rowDefinition = definition(for: row.entry)
                     Text(row.callingName)
-                        .foregroundStyle(definition(for: row.entry)?.isPending == true ? .orange : .red)
+                        .strikethrough(rowDefinition?.isMarkedForDeletion == true)
+                        .foregroundStyle(rowDefinition?.isPending == true ? .orange : .red)
                 }
             }
             .width(min: 180, ideal: 280)
