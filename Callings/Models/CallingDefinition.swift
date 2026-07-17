@@ -41,4 +41,15 @@ struct CallingDefinition: Codable, Identifiable, Hashable {
     var importKey: String {
         "\(organization.rawValue)|\(subgroup ?? "")|\(name)".lowercased()
     }
+
+    /// Calling name for display inside its own organization's group, with the
+    /// redundant organization prefix removed ("Elders Quorum President" shown
+    /// under Elders Quorum becomes "President").
+    var nameWithinOrganization: String {
+        let prefix = organization.rawValue
+        guard name.count > prefix.count,
+              name.lowercased().hasPrefix(prefix.lowercased()) else { return name }
+        let stripped = String(name.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
+        return stripped.isEmpty ? name : stripped
+    }
 }

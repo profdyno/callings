@@ -21,7 +21,7 @@ struct CallingRowView: View {
     var body: some View {
         GridRow {
             NavigationLink(value: slot) {
-                Text(definition?.name ?? "—")
+                Text(definition?.nameWithinOrganization ?? "—")
                     .font(.subheadline)
                     .foregroundStyle(openEntry != nil ? Color.red : Color.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)

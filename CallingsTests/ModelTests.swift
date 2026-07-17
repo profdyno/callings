@@ -36,6 +36,19 @@ final class ModelTests: XCTestCase {
         XCTAssertFalse(criteria.matches(sister))
     }
 
+    func testNameWithinOrganizationStripsGroupPrefix() {
+        let president = CallingDefinition(name: "Elders Quorum President", organization: .eldersQuorum)
+        XCTAssertEqual(president.nameWithinOrganization, "President")
+
+        // Not a prefix match — unchanged ("Ward Missionaries" vs "Ward Missionary")
+        let missionary = CallingDefinition(name: "Ward Missionary", organization: .wardMissionaries)
+        XCTAssertEqual(missionary.nameWithinOrganization, "Ward Missionary")
+
+        // Calling that IS exactly the org name stays intact
+        let bishop = CallingDefinition(name: "Bishopric", organization: .bishopric)
+        XCTAssertEqual(bishop.nameWithinOrganization, "Bishopric")
+    }
+
     func testMemberNameParsing() {
         let member = Member(name: "Alley, Raelyn Kay")
         XCTAssertEqual(member.lastName, "Alley")

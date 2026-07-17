@@ -44,7 +44,7 @@ private struct OrganizationCallingRow: View {
         NavigationLink(value: slot) {
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
-                    Text(store.definition(for: slot)?.name ?? "—")
+                    Text(store.definition(for: slot)?.nameWithinOrganization ?? "—")
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(openEntry != nil ? Color.red : Color.primary)
                     Spacer()
