@@ -108,7 +108,7 @@ jobs:
       - name: Run unit tests
         run: |
           set -o pipefail
-          IPAD=$(xcrun simctl list devices available | grep -o "iPad[^(]*" | head -1 | xargs)
+          IPAD=$(xcrun simctl list devices available --json | jq -r '[.devices[] | .[] | select(.name | startswith("iPad"))][0].name')
           echo "Testing on simulator: $IPAD"
           xcodebuild test \
             -project Callings.xcodeproj \
