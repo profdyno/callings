@@ -105,7 +105,7 @@ struct OpenCallingsView: View {
                 Text(row.callingName)
                     .foregroundStyle(.red)
             }
-            .width(min: 140, ideal: 220)
+            .width(min: 180, ideal: 280)
 
             TableColumn("Current (Release)") { row in
                 Menu {
@@ -124,7 +124,7 @@ struct OpenCallingsView: View {
                     }
                 }
             }
-            .width(min: 140, ideal: 190)
+            .width(min: 150, ideal: 220)
 
             TableColumn("To Be Called (Status)") { row in
                 Menu {

@@ -53,7 +53,9 @@ enum WardCallingsParser {
                     }
                     continue
                 }
-                if pageIndex == 0, text.contains("Stake (") { continue }
+                // Ward/stake header lines repeat at the top of most pages and
+                // end with a unit ID, e.g. "Mesa Arizona Salt River Stake (508225)".
+                if text.firstMatch(of: #/\(\d{4,}\)$/#) != nil { continue }
                 lines.append(line)
             }
         }
@@ -102,8 +104,14 @@ enum WardCallingsParser {
                 continue
             }
 
-            // Subgroup header: the next line is a column header.
-            if index + 1 < lines.count, isColumnHeader(lines[index + 1]) {
+            // Subgroup header: the next line is a column header. Data rows can
+            // also precede a column header when a table continues onto the next
+            // page, but they have multiple runs (calling + holder columns) or
+            // end in "Calling Vacant" — subgroup headers are one contiguous run
+            // (optionally with a trailing "Room: …" annotation).
+            if index + 1 < lines.count, isColumnHeader(lines[index + 1]),
+               !fullText.hasSuffix("Calling Vacant"),
+               line.runs.count == 1 || fullText.contains("Room:") {
                 currentSubgroup = stripRoomSuffix(fullText)
                 continue
             }

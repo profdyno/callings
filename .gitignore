@@ -28,3 +28,4 @@ new_certificate_needed.txt
 
 # Ward data — real member PII, never commit
 import/*.pdf
+screenshots/

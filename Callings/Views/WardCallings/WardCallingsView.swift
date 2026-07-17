@@ -5,9 +5,10 @@ import SwiftUI
 struct WardCallingsView: View {
     @Environment(WardStore.self) private var store
     @State private var editingDefinition: CallingDefinition?
+    @State private var path = NavigationPath()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Group {
                 if store.data.callingSlots.isEmpty {
                     ContentUnavailableView(
@@ -39,6 +40,14 @@ struct WardCallingsView: View {
             }
             .sheet(item: $editingDefinition) { definition in
                 CallingEditorSheet(definition: definition)
+            }
+            .onAppear {
+                // Launch-argument hook for automated screenshots and UI tests.
+                let arguments = ProcessInfo.processInfo.arguments
+                if let index = arguments.firstIndex(of: "-drill"), index + 1 < arguments.count,
+                   let org = OrganizationKind.match(headerText: arguments[index + 1]) {
+                    path.append(org)
+                }
             }
         }
     }

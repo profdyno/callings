@@ -56,6 +56,10 @@ final class ParserTests: XCTestCase {
 
         let organizations = Set(parsed.rows.map(\.organization))
         XCTAssertEqual(organizations.count, OrganizationKind.allCases.count, "all 11 groups present")
+
+        // Repeated ward/stake page headers must not leak in as subgroups.
+        let subgroups = Set(parsed.rows.compactMap(\.subgroup))
+        XCTAssertFalse(subgroups.contains { $0.contains("Stake (") || $0.contains("Ward (") })
     }
 
     func testRealMemberListPDF() throws {
