@@ -1,11 +1,13 @@
 import SwiftUI
 
 /// One calling/name grid row. Red calling text = has an open entry.
-/// Optional highlights: vacant callings and long-tenured members.
+/// Tapping the calling starts (or resumes) a calling change and opens the
+/// candidate picker. Optional highlights: vacant callings and long tenure.
 struct CallingRowView: View {
     @Environment(WardStore.self) private var store
     let slot: CallingSlot
     @Binding var editingDefinition: CallingDefinition?
+    @Binding var pickerEntry: OpenCalling?
 
     private var definition: CallingDefinition? { store.definition(for: slot) }
     private var holder: Member? { store.member(slot.memberID) }
@@ -20,7 +22,9 @@ struct CallingRowView: View {
 
     var body: some View {
         GridRow {
-            NavigationLink(value: slot) {
+            Button {
+                pickerEntry = store.openCallingEntry(for: slot)
+            } label: {
                 Text(definition?.nameWithinOrganization ?? "—")
                     .font(.subheadline)
                     .foregroundStyle(openEntry != nil ? Color.red : Color.primary)
@@ -36,17 +40,20 @@ struct CallingRowView: View {
                 .background(highlightBackground, in: RoundedRectangle(cornerRadius: 4))
         }
         .contextMenu {
-            if openEntry == nil {
+            NavigationLink(value: slot) {
+                Label("Details…", systemImage: "info.circle")
+            }
+            if let entry = openEntry {
+                Button(role: .destructive) {
+                    store.removeOpenCalling(entry.id)
+                } label: {
+                    Label("Remove from Open Callings", systemImage: "rectangle.stack.badge.minus")
+                }
+            } else {
                 Button {
                     store.openCallingEntry(for: slot)
                 } label: {
                     Label("Add to Open Callings", systemImage: "rectangle.stack.badge.plus")
-                }
-            } else {
-                Button(role: .destructive) {
-                    if let entry = openEntry { store.removeOpenCalling(entry.id) }
-                } label: {
-                    Label("Remove from Open Callings", systemImage: "rectangle.stack.badge.minus")
                 }
             }
             Button {

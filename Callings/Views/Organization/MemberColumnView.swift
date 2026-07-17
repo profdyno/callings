@@ -21,6 +21,7 @@ struct MemberColumnView: View {
 
     @Environment(WardStore.self) private var store
     let mode: Mode
+    var editableCategory = false
     @State private var sortByTenure = false
     @State private var searchText = ""
 
@@ -43,8 +44,12 @@ struct MemberColumnView: View {
                 .textFieldStyle(.roundedBorder)
 
             List(filteredMembers) { member in
-                MemberRowView(member: member, showTenure: mode == .withCallings)
-                    .draggable(member)
+                MemberRowView(
+                    member: member,
+                    showTenure: mode == .withCallings,
+                    editableCategory: editableCategory
+                )
+                .draggable(member)
             }
             .listStyle(.plain)
         }
@@ -73,6 +78,7 @@ struct MemberRowView: View {
     @Environment(WardStore.self) private var store
     let member: Member
     var showTenure = false
+    var editableCategory = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
@@ -80,7 +86,9 @@ struct MemberRowView: View {
                 Text(member.name)
                     .font(.subheadline)
                 Spacer()
-                if member.category != .none {
+                if editableCategory {
+                    CategoryMenu(member: member)
+                } else if member.category != .none {
                     Text(member.category.label)
                         .font(.caption2)
                         .padding(.horizontal, 4)

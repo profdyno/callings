@@ -6,6 +6,7 @@ struct ContentView: View {
     enum Tab {
         case wardCallings
         case openCallings
+        case reports
         case importData
     }
 
@@ -15,6 +16,7 @@ struct ContentView: View {
         if let index = arguments.firstIndex(of: "-tab"), index + 1 < arguments.count {
             switch arguments[index + 1] {
             case "open": _selectedTab = State(initialValue: .openCallings)
+            case "reports": _selectedTab = State(initialValue: .reports)
             case "import": _selectedTab = State(initialValue: .importData)
             default: _selectedTab = State(initialValue: .wardCallings)
             }
@@ -31,6 +33,9 @@ struct ContentView: View {
             OpenCallingsView()
                 .tabItem { Label("Open Callings", systemImage: "list.bullet.rectangle") }
                 .tag(Tab.openCallings)
+            ReportsView()
+                .tabItem { Label("Reports", systemImage: "list.clipboard") }
+                .tag(Tab.reports)
             ImportView()
                 .tabItem { Label("Import", systemImage: "square.and.arrow.down") }
                 .tag(Tab.importData)

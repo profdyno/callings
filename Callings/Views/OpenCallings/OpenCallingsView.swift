@@ -6,6 +6,7 @@ struct OpenCallingsView: View {
     @Environment(WardStore.self) private var store
     @State private var showArchived = false
     @State private var pickerEntry: OpenCalling?
+    @State private var editingDefinition: CallingDefinition?
 
     var body: some View {
         NavigationStack {
@@ -31,9 +32,12 @@ struct OpenCallingsView: View {
                 .toggleStyle(.button)
             }
             .sheet(item: $pickerEntry) { entry in
-                if let criteria = criteria(for: entry) {
-                    CandidatePickerSheet(openCallingID: entry.id, criteria: criteria)
+                if let definition = definition(for: entry) {
+                    CandidatePickerSheet(openCallingID: entry.id, definitionID: definition.id)
                 }
+            }
+            .sheet(item: $editingDefinition) { definition in
+                CallingEditorSheet(definition: definition)
             }
         }
     }
@@ -77,13 +81,25 @@ struct OpenCallingsView: View {
         }
     }
 
-    private func criteria(for entry: OpenCalling) -> CandidateCriteria? {
+    private func definition(for entry: OpenCalling) -> CallingDefinition? {
         guard let slot = store.slotsByID[entry.slotID] else { return nil }
-        return store.definition(for: slot)?.criteria
+        return store.definition(for: slot)
     }
 
     private var table: some View {
         Table(rows) {
+            TableColumn("") { row in
+                Button(role: .destructive) {
+                    store.removeOpenCalling(row.entry.id)
+                } label: {
+                    Image(systemName: "trash")
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
+                .help("Delete this calling change")
+            }
+            .width(28)
+
             TableColumn("Assigned") { row in
                 Menu {
                     ForEach(BishopricMember.allCases) { member in
@@ -102,8 +118,18 @@ struct OpenCallingsView: View {
             .width(min: 100, ideal: 150)
 
             TableColumn("Calling") { row in
-                Text(row.callingName)
-                    .foregroundStyle(.red)
+                HStack(spacing: 6) {
+                    Button {
+                        editingDefinition = definition(for: row.entry)
+                    } label: {
+                        Image(systemName: "slider.horizontal.3")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Edit criteria and display order")
+                    Text(row.callingName)
+                        .foregroundStyle(.red)
+                }
             }
             .width(min: 180, ideal: 280)
 

@@ -5,6 +5,7 @@ import SwiftUI
 struct WardCallingsView: View {
     @Environment(WardStore.self) private var store
     @State private var editingDefinition: CallingDefinition?
+    @State private var pickerEntry: OpenCalling?
     @State private var path = NavigationPath()
 
     var body: some View {
@@ -21,7 +22,11 @@ struct WardCallingsView: View {
                         MasonryLayout(columnWidth: 340, spacing: 12) {
                             ForEach(OrganizationKind.allCases) { org in
                                 if !store.slots(in: org).isEmpty {
-                                    OrganizationCardView(organization: org, editingDefinition: $editingDefinition)
+                                    OrganizationCardView(
+                                        organization: org,
+                                        editingDefinition: $editingDefinition,
+                                        pickerEntry: $pickerEntry
+                                    )
                                 }
                             }
                         }
@@ -40,6 +45,12 @@ struct WardCallingsView: View {
             }
             .sheet(item: $editingDefinition) { definition in
                 CallingEditorSheet(definition: definition)
+            }
+            .sheet(item: $pickerEntry) { entry in
+                if let slot = store.slotsByID[entry.slotID],
+                   let definition = store.definition(for: slot) {
+                    CandidatePickerSheet(openCallingID: entry.id, definitionID: definition.id)
+                }
             }
             .onAppear {
                 // Launch-argument hook for automated screenshots and UI tests.

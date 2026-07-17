@@ -5,6 +5,7 @@ enum BishopricMember: String, Codable, CaseIterable, Identifiable {
     case bishop = "Bishop"
     case firstCounselor = "1st Counselor"
     case secondCounselor = "2nd Counselor"
+    case stake = "Stake"
 
     var id: String { rawValue }
 }

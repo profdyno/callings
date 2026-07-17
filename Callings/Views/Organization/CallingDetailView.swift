@@ -28,7 +28,7 @@ struct CallingDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showingPicker) {
             if let openEntry, let definition {
-                CandidatePickerSheet(openCallingID: openEntry.id, criteria: definition.criteria)
+                CandidatePickerSheet(openCallingID: openEntry.id, definitionID: definition.id)
             }
         }
         .sheet(item: $editingDefinition) { definition in
