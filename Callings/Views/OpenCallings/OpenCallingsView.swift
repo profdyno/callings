@@ -100,18 +100,6 @@ struct OpenCallingsView: View {
             }
             .width(28)
 
-            TableColumn("Assigned") { row in
-                Menu {
-                    ForEach(BishopricMember.allCases) { member in
-                        Button(member.rawValue) { update(row.entry) { $0.assignedTo = member } }
-                    }
-                } label: {
-                    Text(row.entry.assignedTo == .unassigned ? "—" : row.entry.assignedTo.rawValue)
-                        .foregroundStyle(row.entry.assignedTo == .unassigned ? .secondary : .primary)
-                }
-            }
-            .width(min: 90, ideal: 110)
-
             TableColumn("Group") { row in
                 Text(row.organization.rawValue)
             }
@@ -134,69 +122,33 @@ struct OpenCallingsView: View {
             .width(min: 180, ideal: 280)
 
             TableColumn("Current (Release)") { row in
-                Menu {
-                    ForEach(ReleaseStatus.allCases) { status in
-                        Button(status.rawValue) { update(row.entry) { $0.releaseStatus = status } }
-                    }
-                } label: {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(row.currentMember)
-                            .foregroundStyle(row.entry.releaseStatus.color ?? .primary)
-                        if row.entry.releaseStatus != .none {
-                            Text(row.entry.releaseStatus.rawValue)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
+                ReleaseStatusCell(currentName: row.currentMember, entry: row.entry) { row.entry }
             }
             .width(min: 150, ideal: 220)
 
+            TableColumn("Candidates") { row in
+                CandidatesCell(entry: row.entry, ensureEntry: { row.entry }, openPicker: { entry in
+                    pickerEntry = entry
+                })
+            }
+            .width(min: 160)
+
             TableColumn("To Be Called (Status)") { row in
-                Menu {
-                    Section("Member to call") {
-                        Button("None") { update(row.entry) { $0.memberToBeCalledID = nil; $0.callStatus = .none } }
-                        ForEach(row.entry.candidateIDs, id: \.self) { id in
-                            if let member = store.member(id) {
-                                Button(member.name) {
-                                    update(row.entry) {
-                                        $0.memberToBeCalledID = id
-                                        if $0.callStatus == .none { $0.callStatus = .selected }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Section("Status") {
-                        ForEach(CallStatus.allCases) { status in
-                            Button(status.rawValue) { update(row.entry) { $0.callStatus = status } }
-                        }
-                    }
-                } label: {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(row.newMember)
-                            .foregroundStyle(row.entry.callStatus.color ?? .primary)
-                        if row.entry.callStatus != .none {
-                            Text(row.entry.callStatus.rawValue)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
+                ToBeCalledCell(entry: row.entry) { row.entry }
             }
             .width(min: 150, ideal: 190)
 
-            TableColumn("Candidates") { row in
-                Button {
-                    pickerEntry = row.entry
+            TableColumn("Assigned") { row in
+                Menu {
+                    ForEach(BishopricMember.allCases) { member in
+                        Button(member.rawValue) { update(row.entry) { $0.assignedTo = member } }
+                    }
                 } label: {
-                    Text(row.candidates.isEmpty ? "Add…" : row.candidates)
-                        .foregroundStyle(row.candidates.isEmpty ? Color.secondary : Color.primary)
-                        .lineLimit(2)
+                    Text(row.entry.assignedTo == .unassigned ? "—" : row.entry.assignedTo.rawValue)
+                        .foregroundStyle(row.entry.assignedTo == .unassigned ? .secondary : .primary)
                 }
-                .buttonStyle(.plain)
             }
-            .width(min: 160)
+            .width(min: 90, ideal: 110)
         }
         .contextMenu(forSelectionType: Row.ID.self) { ids in
             if let id = ids.first {

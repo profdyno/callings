@@ -1,74 +1,93 @@
 import SwiftUI
 
-/// Organization drill-in: every calling in the org (each row a drop target
-/// for candidates), plus the two member columns for drag sources.
+/// Organization drill-in: every calling in the org as a workflow table —
+/// current holder with release status, member to be called with call status,
+/// and candidates. Interacting with a row starts its open-calling entry.
 struct OrganizationView: View {
     @Environment(WardStore.self) private var store
     let organization: OrganizationKind
+    @State private var pickerEntry: OpenCalling?
+    @State private var editingDefinition: CallingDefinition?
+
+    private struct Row: Identifiable {
+        let slot: CallingSlot
+        let definition: CallingDefinition
+        let entry: OpenCalling?
+        let currentName: String
+
+        var id: UUID { slot.id }
+    }
+
+    private var rows: [Row] {
+        store.slots(in: organization).compactMap { slot in
+            guard let definition = store.definition(for: slot) else { return nil }
+            return Row(
+                slot: slot,
+                definition: definition,
+                entry: store.openCalling(forSlot: slot.id),
+                currentName: store.member(slot.memberID)?.name ?? slot.holderNameRaw ?? "Vacant"
+            )
+        }
+    }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(store.slots(in: organization)) { slot in
-                        OrganizationCallingRow(slot: slot)
-                        Divider()
+        Table(rows) {
+            TableColumn("Calling") { row in
+                HStack(spacing: 6) {
+                    Button {
+                        editingDefinition = row.definition
+                    } label: {
+                        Image(systemName: "slider.horizontal.3")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Edit criteria and display order")
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(row.definition.nameWithinOrganization)
+                            .foregroundStyle(row.entry != nil ? Color.red : Color.primary)
+                        if let subgroup = row.definition.subgroup {
+                            Text(subgroup)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
-                .padding(10)
             }
-            .frame(maxWidth: .infinity)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
+            .width(min: 200, ideal: 300)
 
-            MemberColumnView(mode: .needCallings)
-                .frame(width: 280)
-            MemberColumnView(mode: .withCallings)
-                .frame(width: 300)
+            TableColumn("Current (Release)") { row in
+                ReleaseStatusCell(currentName: row.currentName, entry: row.entry) {
+                    store.openCallingEntry(for: row.slot)
+                }
+            }
+            .width(min: 160, ideal: 220)
+
+            TableColumn("To Be Called (Status)") { row in
+                ToBeCalledCell(entry: row.entry) {
+                    store.openCallingEntry(for: row.slot)
+                }
+            }
+            .width(min: 160, ideal: 220)
+
+            TableColumn("Candidates") { row in
+                CandidatesCell(entry: row.entry, ensureEntry: {
+                    store.openCallingEntry(for: row.slot)
+                }, openPicker: { entry in
+                    pickerEntry = entry
+                })
+            }
+            .width(min: 180)
         }
-        .padding(12)
         .navigationTitle(organization.rawValue)
         .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-/// A calling row inside the organization view. Dropping a member on it adds
-/// them as a candidate (creating the open-calling entry when needed).
-private struct OrganizationCallingRow: View {
-    @Environment(WardStore.self) private var store
-    let slot: CallingSlot
-    @State private var isTargeted = false
-
-    private var openEntry: OpenCalling? { store.openCalling(forSlot: slot.id) }
-
-    var body: some View {
-        NavigationLink(value: slot) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    Text(store.definition(for: slot)?.nameWithinOrganization ?? "—")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(openEntry != nil ? Color.red : Color.primary)
-                    Spacer()
-                    Text(store.member(slot.memberID)?.name ?? slot.holderNameRaw ?? "Vacant")
-                        .font(.subheadline)
-                        .foregroundStyle(slot.memberID == nil && slot.holderNameRaw == nil ? .secondary : .primary)
-                }
-                if let entry = openEntry, !entry.candidateIDs.isEmpty {
-                    Text("Candidates: " + entry.candidateIDs.compactMap { store.member($0)?.displayName }.joined(separator: ", "))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+        .sheet(item: $pickerEntry) { entry in
+            if let slot = store.slotsByID[entry.slotID],
+               let definition = store.definition(for: slot) {
+                CandidatePickerSheet(openCallingID: entry.id, definitionID: definition.id)
             }
-            .padding(.vertical, 4)
-            .padding(.horizontal, 6)
-            .background(isTargeted ? Color.accentColor.opacity(0.15) : .clear, in: RoundedRectangle(cornerRadius: 6))
         }
-        .buttonStyle(.plain)
-        .dropDestination(for: Member.self) { members, _ in
-            let entry = store.openCallingEntry(for: slot)
-            for member in members {
-                store.addCandidate(member.id, for: entry.id)
-            }
-            return true
-        } isTargeted: { isTargeted = $0 }
+        .sheet(item: $editingDefinition) { definition in
+            CallingEditorSheet(definition: definition)
+        }
     }
 }
