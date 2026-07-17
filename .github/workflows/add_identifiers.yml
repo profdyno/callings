@@ -1,0 +1,33 @@
+name: "2. Add Identifiers"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Validate Secrets
+    uses: ./.github/workflows/validate_secrets.yml
+    secrets: inherit
+
+  add-identifiers:
+    name: Add App Identifiers
+    runs-on: macos-15
+    needs: validate
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          gem install bundler:2.5.22
+          bundle _2.5.22_ install
+
+      - name: Add identifiers
+        env:
+          TEAMID: ${{ secrets.TEAMID }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
+          FASTLANE_ISSUER_ID: ${{ secrets.FASTLANE_ISSUER_ID }}
+          FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
+        run: bundle exec fastlane identifiers

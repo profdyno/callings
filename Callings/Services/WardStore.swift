@@ -1,0 +1,182 @@
+import Foundation
+import Observation
+
+/// Single source of truth for all ward data and filters.
+@Observable
+@MainActor
+final class WardStore {
+    var data: WardData
+    // Home-page highlight filters
+    var highlightOpenCallings = false
+    var highlightTenure = false
+    var tenureThresholdMonths = 24
+
+    private let persistence: PersistenceService
+
+    init(persistence: PersistenceService = PersistenceService()) {
+        self.persistence = persistence
+        self.data = persistence.load() ?? WardData()
+    }
+
+    private func save() {
+        persistence.scheduleSave(data)
+    }
+
+    // MARK: - Lookups
+
+    var membersByID: [UUID: Member] {
+        Dictionary(uniqueKeysWithValues: data.members.map { ($0.id, $0) })
+    }
+
+    var definitionsByID: [UUID: CallingDefinition] {
+        Dictionary(uniqueKeysWithValues: data.callingDefinitions.map { ($0.id, $0) })
+    }
+
+    var slotsByID: [UUID: CallingSlot] {
+        Dictionary(uniqueKeysWithValues: data.callingSlots.map { ($0.id, $0) })
+    }
+
+    func member(_ id: UUID?) -> Member? {
+        guard let id else { return nil }
+        return membersByID[id]
+    }
+
+    func definition(for slot: CallingSlot) -> CallingDefinition? {
+        definitionsByID[slot.definitionID]
+    }
+
+    /// Slots for one organization, ordered by definition displayOrder then PDF order.
+    func slots(in organization: OrganizationKind) -> [CallingSlot] {
+        let definitions = definitionsByID
+        return data.callingSlots
+            .filter { definitions[$0.definitionID]?.organization == organization }
+            .sorted { a, b in
+                let da = definitions[a.definitionID], db = definitions[b.definitionID]
+                if da?.displayOrder != db?.displayOrder {
+                    return (da?.displayOrder ?? 100) < (db?.displayOrder ?? 100)
+                }
+                return a.importOrder < b.importOrder
+            }
+    }
+
+    /// All slots held by a member (a member may have more than one calling).
+    func slots(heldBy memberID: UUID) -> [CallingSlot] {
+        data.callingSlots.filter { $0.memberID == memberID }
+    }
+
+    var activeOpenCallings: [OpenCalling] {
+        data.openCallings.filter { !$0.isArchived }
+    }
+
+    var archivedOpenCallings: [OpenCalling] {
+        data.openCallings.filter(\.isArchived).sorted { ($0.archivedAt ?? .distantPast) > ($1.archivedAt ?? .distantPast) }
+    }
+
+    func openCalling(forSlot slotID: UUID) -> OpenCalling? {
+        activeOpenCallings.first { $0.slotID == slotID }
+    }
+
+    /// Members with no calling slot, for the "Members Need Callings" column.
+    var membersNeedingCallings: [Member] {
+        let heldMemberIDs = Set(data.callingSlots.compactMap(\.memberID))
+        return data.members
+            .filter { $0.isActiveOnRoster && !heldMemberIDs.contains($0.id) }
+            .sorted { $0.name < $1.name }
+    }
+
+    var membersWithCallings: [Member] {
+        let heldMemberIDs = Set(data.callingSlots.compactMap(\.memberID))
+        return data.members
+            .filter { $0.isActiveOnRoster && heldMemberIDs.contains($0.id) }
+            .sorted { $0.name < $1.name }
+    }
+
+    // MARK: - Open calling workflow
+
+    /// Creates an open-callings entry for a slot (no-op if one is already active).
+    @discardableResult
+    func openCallingEntry(for slot: CallingSlot) -> OpenCalling {
+        if let existing = openCalling(forSlot: slot.id) { return existing }
+        var entry = OpenCalling(slotID: slot.id)
+        // A vacant slot has nobody to release.
+        entry.releaseStatus = slot.memberID == nil ? .none : .open
+        data.openCallings.append(entry)
+        save()
+        return entry
+    }
+
+    func removeOpenCalling(_ id: UUID) {
+        data.openCallings.removeAll { $0.id == id }
+        save()
+    }
+
+    func updateOpenCalling(_ entry: OpenCalling) {
+        guard let index = data.openCallings.firstIndex(where: { $0.id == entry.id }) else { return }
+        data.openCallings[index] = entry
+        save()
+    }
+
+    func archiveOpenCalling(_ id: UUID, newHolderName: String? = nil) {
+        guard let index = data.openCallings.firstIndex(where: { $0.id == id }) else { return }
+        var entry = data.openCallings[index]
+        let slot = slotsByID[entry.slotID]
+        let definition = slot.flatMap { definitionsByID[$0.definitionID] }
+        entry.isArchived = true
+        entry.archivedAt = .now
+        entry.snapshotCallingName = definition?.name
+        entry.snapshotOrganization = definition?.organization.rawValue
+        entry.snapshotPreviousHolder = slot.flatMap { s in member(s.memberID)?.name ?? s.holderNameRaw }
+        entry.snapshotNewHolder = newHolderName ?? member(entry.memberToBeCalledID)?.name
+        data.openCallings[index] = entry
+        save()
+    }
+
+    // MARK: - Candidates
+
+    func toggleCandidate(_ memberID: UUID, for openCallingID: UUID) {
+        guard let index = data.openCallings.firstIndex(where: { $0.id == openCallingID }) else { return }
+        if let existing = data.openCallings[index].candidateIDs.firstIndex(of: memberID) {
+            data.openCallings[index].candidateIDs.remove(at: existing)
+        } else {
+            data.openCallings[index].candidateIDs.append(memberID)
+        }
+        save()
+    }
+
+    func addCandidate(_ memberID: UUID, for openCallingID: UUID) {
+        guard let index = data.openCallings.firstIndex(where: { $0.id == openCallingID }),
+              !data.openCallings[index].candidateIDs.contains(memberID) else { return }
+        data.openCallings[index].candidateIDs.append(memberID)
+        save()
+    }
+
+    /// Eligible candidates for a calling per its criteria.
+    func candidates(matching criteria: CandidateCriteria) -> [Member] {
+        let heldMemberIDs = Set(data.callingSlots.compactMap(\.memberID))
+        return data.members
+            .filter { $0.isActiveOnRoster && !$0.isPlaceholder && criteria.matches($0) }
+            .filter { criteria.allowMultipleCallings || !heldMemberIDs.contains($0.id) }
+            .sorted { $0.name < $1.name }
+    }
+
+    // MARK: - Member and definition edits
+
+    func setCategory(_ category: MemberCategory, forMember memberID: UUID) {
+        guard let index = data.members.firstIndex(where: { $0.id == memberID }) else { return }
+        data.members[index].category = category
+        save()
+    }
+
+    func updateDefinition(_ definition: CallingDefinition) {
+        guard let index = data.callingDefinitions.firstIndex(where: { $0.id == definition.id }) else { return }
+        data.callingDefinitions[index] = definition
+        save()
+    }
+
+    // MARK: - Import
+
+    func apply(_ newData: WardData) {
+        data = newData
+        persistence.saveNow(data)
+    }
+}

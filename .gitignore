@@ -1,0 +1,30 @@
+# Xcode
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+DerivedData/
+build/
+*.xcarchive
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+fastlane/logs/
+
+# Ruby
+vendor/
+.bundle/
+Gemfile.lock
+
+# macOS
+.DS_Store
+
+# Build artifacts
+*.ipa
+*.dSYM.zip
+new_certificate_needed.txt
+
+# Ward data — real member PII, never commit
+import/*.pdf

@@ -1,0 +1,319 @@
+default_platform(:ios)
+
+TEAMID = ENV["TEAMID"]
+GH_PAT = ENV["GH_PAT"]
+GITHUB_REPOSITORY_OWNER = ENV["GITHUB_REPOSITORY_OWNER"]
+FASTLANE_KEY_ID = ENV["FASTLANE_KEY_ID"]
+FASTLANE_ISSUER_ID = ENV["FASTLANE_ISSUER_ID"]
+FASTLANE_KEY = ENV["FASTLANE_KEY"]
+MATCH_PASSWORD = ENV["MATCH_PASSWORD"]
+
+APP_IDENTIFIER = "com.#{TEAMID}.callings.Callings"
+
+platform :ios do
+
+  # ──────────────────────────────────────────────
+  # Lane: validate_secrets
+  # ──────────────────────────────────────────────
+  desc "Validate all secrets and connectivity"
+  lane :validate_secrets do
+    api_key = app_store_connect_api_key(
+      key_id: "#{FASTLANE_KEY_ID}",
+      issuer_id: "#{FASTLANE_ISSUER_ID}",
+      key_content: "#{FASTLANE_KEY}",
+      in_house: false
+    )
+
+    # Test API connectivity by fetching apps
+    begin
+      Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(**api_key)
+      apps = Spaceship::ConnectAPI::App.all
+      UI.success("API key is valid. Found #{apps.count} app(s) in App Store Connect.")
+    rescue => e
+      UI.user_error!("API key validation failed: #{e.message}")
+    end
+
+    # Test Match-Secrets repo access (clone only, don't validate certs)
+    begin
+      match(
+        type: "appstore",
+        app_identifier: [APP_IDENTIFIER],
+        git_basic_authorization: Base64.strict_encode64("#{GITHUB_REPOSITORY_OWNER}:#{GH_PAT}"),
+        readonly: true
+      )
+      UI.success("Match-Secrets is accessible and certificates are valid.")
+    rescue => e
+      # Any match failure during validation is OK — certs may not exist yet or may be expired
+      UI.important("Match-Secrets is accessible but certificates need attention: #{e.message.split("\n").first}")
+      UI.important("Run 'Create Certificates' workflow to fix.")
+    end
+  end
+
+  # ──────────────────────────────────────────────
+  # Lane: identifiers
+  # ──────────────────────────────────────────────
+  desc "Create App IDs and configure capabilities"
+  lane :identifiers do
+    api_key = app_store_connect_api_key(
+      key_id: "#{FASTLANE_KEY_ID}",
+      issuer_id: "#{FASTLANE_ISSUER_ID}",
+      key_content: "#{FASTLANE_KEY}",
+      in_house: false
+    )
+
+    Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(**api_key)
+
+    # Create or find the App ID
+    bundle_id = Spaceship::ConnectAPI::BundleId.find(APP_IDENTIFIER)
+    if bundle_id.nil?
+      UI.message("Creating App ID: #{APP_IDENTIFIER}")
+      bundle_id = Spaceship::ConnectAPI::BundleId.create(
+        name: "Callings_MBB",
+        identifier: APP_IDENTIFIER,
+        platform: Spaceship::ConnectAPI::BundleIdPlatform::IOS
+      )
+      UI.success("Created App ID: #{APP_IDENTIFIER}")
+    else
+      UI.success("App ID already exists: #{APP_IDENTIFIER}")
+    end
+
+    # Note: The App Store Connect app entry will be created automatically
+    # when the first build is uploaded to TestFlight. If you want to create
+    # it manually beforehand, go to appstoreconnect.apple.com → My Apps → +
+    app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER)
+    if app.nil?
+      UI.important("App not yet in App Store Connect. It will be created on first TestFlight upload, or create it manually at appstoreconnect.apple.com")
+    else
+      UI.success("App exists in App Store Connect.")
+    end
+  end
+
+  # ──────────────────────────────────────────────
+  # Lane: certs
+  # ──────────────────────────────────────────────
+  desc "Sync or create certificates and profiles via Match"
+  lane :certs do
+    setup_ci
+
+    api_key = app_store_connect_api_key(
+      key_id: "#{FASTLANE_KEY_ID}",
+      issuer_id: "#{FASTLANE_ISSUER_ID}",
+      key_content: "#{FASTLANE_KEY}",
+      in_house: false
+    )
+
+    match(
+      type: "appstore",
+      app_identifier: [APP_IDENTIFIER],
+      api_key: api_key,
+      git_basic_authorization: Base64.strict_encode64("#{GITHUB_REPOSITORY_OWNER}:#{GH_PAT}"),
+      force_for_new_devices: false,
+      readonly: false
+    )
+  end
+
+  # ──────────────────────────────────────────────
+  # Lane: nuke_and_recreate
+  # ──────────────────────────────────────────────
+  desc "Nuke all certs from Match-Secrets git repo and recreate"
+  lane :nuke_and_recreate do
+    setup_ci
+
+    api_key = app_store_connect_api_key(
+      key_id: "#{FASTLANE_KEY_ID}",
+      issuer_id: "#{FASTLANE_ISSUER_ID}",
+      key_content: "#{FASTLANE_KEY}",
+      in_house: false
+    )
+
+    # Nuke distribution certs + profiles
+    match_nuke(
+      type: "appstore",
+      api_key: api_key,
+      git_basic_authorization: Base64.strict_encode64("#{GITHUB_REPOSITORY_OWNER}:#{GH_PAT}"),
+      skip_confirmation: true,
+      readonly: false
+    )
+
+    # Recreate — must explicitly disable readonly since setup_ci enables it
+    match(
+      type: "appstore",
+      app_identifier: [APP_IDENTIFIER],
+      api_key: api_key,
+      git_basic_authorization: Base64.strict_encode64("#{GITHUB_REPOSITORY_OWNER}:#{GH_PAT}"),
+      readonly: false
+    )
+  end
+
+  # ──────────────────────────────────────────────
+  # Lane: check_and_renew_certificates
+  # ──────────────────────────────────────────────
+  desc "Check certificate expiration"
+  lane :check_and_renew_certificates do
+    api_key = app_store_connect_api_key(
+      key_id: "#{FASTLANE_KEY_ID}",
+      issuer_id: "#{FASTLANE_ISSUER_ID}",
+      key_content: "#{FASTLANE_KEY}",
+      in_house: false
+    )
+
+    Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(**api_key)
+
+    certs = Spaceship::ConnectAPI::Certificate.all.select do |cert|
+      cert.certificate_type == "DISTRIBUTION"
+    end
+
+    needs_renewal = false
+    if certs.empty?
+      UI.important("No Distribution certificates found.")
+      needs_renewal = true
+    else
+      certs.each do |cert|
+        expiry = Time.parse(cert.expiration_date)
+        days_until_expiry = ((expiry - Time.now) / 86400).to_i
+        UI.message("Certificate '#{cert.name}' expires in #{days_until_expiry} days (#{cert.expiration_date})")
+        if days_until_expiry < 30
+          UI.important("Certificate expires in less than 30 days!")
+          needs_renewal = true
+        end
+      end
+    end
+
+    output_path = File.join(Dir.pwd, "new_certificate_needed.txt")
+    File.write(output_path, needs_renewal ? "true" : "false")
+    UI.message("Certificate renewal needed: #{needs_renewal} (wrote to #{output_path})")
+  end
+
+  # ──────────────────────────────────────────────
+  # Lane: nuke_certs
+  # ──────────────────────────────────────────────
+  desc "Revoke and recreate all certificates"
+  lane :nuke_certs do
+    setup_ci
+
+    api_key = app_store_connect_api_key(
+      key_id: "#{FASTLANE_KEY_ID}",
+      issuer_id: "#{FASTLANE_ISSUER_ID}",
+      key_content: "#{FASTLANE_KEY}",
+      in_house: false
+    )
+
+    match_nuke(
+      type: "appstore",
+      api_key: api_key,
+      git_basic_authorization: Base64.strict_encode64("#{GITHUB_REPOSITORY_OWNER}:#{GH_PAT}"),
+      skip_confirmation: true
+    )
+
+    # Recreate
+    match(
+      type: "appstore",
+      app_identifier: [APP_IDENTIFIER],
+      api_key: api_key,
+      git_basic_authorization: Base64.strict_encode64("#{GITHUB_REPOSITORY_OWNER}:#{GH_PAT}")
+    )
+  end
+
+  # ──────────────────────────────────────────────
+  # Lane: build_callings
+  # ──────────────────────────────────────────────
+  desc "Build the Callings app"
+  lane :build_callings do
+    setup_ci
+
+    api_key = app_store_connect_api_key(
+      key_id: "#{FASTLANE_KEY_ID}",
+      issuer_id: "#{FASTLANE_ISSUER_ID}",
+      key_content: "#{FASTLANE_KEY}",
+      in_house: false
+    )
+
+    # Get next build number — app may not exist in ASC yet on first build
+    begin
+      current_build = latest_testflight_build_number(
+        api_key: api_key,
+        app_identifier: APP_IDENTIFIER,
+        initial_build_number: 0
+      )
+    rescue => e
+      UI.important("Could not fetch build number (app may not exist in App Store Connect yet): #{e.message.split("\n").first}")
+      current_build = 0
+    end
+    new_build = current_build + 1
+    UI.message("Build number: #{new_build}")
+
+    # Ensure App ID capabilities are up to date
+    identifiers
+
+    # Sync signing — install certs and profiles into CI keychain
+    match(
+      type: "appstore",
+      app_identifier: [APP_IDENTIFIER],
+      api_key: api_key,
+      git_basic_authorization: Base64.strict_encode64("#{GITHUB_REPOSITORY_OWNER}:#{GH_PAT}"),
+      readonly: false
+    )
+
+    profile_name = ENV["sigh_#{APP_IDENTIFIER}_appstore_profile-name"]
+
+    # Update Xcode project signing
+    update_project_team(
+      path: "Callings.xcodeproj",
+      teamid: "#{TEAMID}"
+    )
+
+    update_code_signing_settings(
+      path: "Callings.xcodeproj",
+      use_automatic_signing: false,
+      team_id: "#{TEAMID}",
+      bundle_identifier: APP_IDENTIFIER,
+      profile_name: profile_name,
+      code_sign_identity: "iPhone Distribution",
+      targets: ["Callings"]
+    )
+
+    # Set build number
+    increment_build_number(
+      build_number: new_build,
+      xcodeproj: "Callings.xcodeproj"
+    )
+
+    # Build
+    gym(
+      scheme: "Callings",
+      export_method: "app-store",
+      project: "Callings.xcodeproj",
+      output_name: "Callings.ipa",
+      destination: "generic/platform=iOS",
+      archive_path: "Callings.xcarchive",
+      xcargs: "COMPILER_INDEX_STORE_ENABLE=NO",
+      export_options: {
+        signingStyle: "manual",
+        provisioningProfiles: {
+          APP_IDENTIFIER => profile_name
+        }
+      }
+    )
+  end
+
+  # ──────────────────────────────────────────────
+  # Lane: release
+  # ──────────────────────────────────────────────
+  desc "Upload to TestFlight"
+  lane :release do
+    api_key = app_store_connect_api_key(
+      key_id: "#{FASTLANE_KEY_ID}",
+      issuer_id: "#{FASTLANE_ISSUER_ID}",
+      key_content: "#{FASTLANE_KEY}",
+      in_house: false
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      skip_submission: false,
+      ipa: "Callings.ipa",
+      skip_waiting_for_build_processing: true
+    )
+  end
+
+end

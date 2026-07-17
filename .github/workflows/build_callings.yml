@@ -1,0 +1,146 @@
+name: "4. Build Callings"
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Every Sunday at 07:33 UTC — keeps TestFlight build from expiring (90 days)
+    - cron: "33 7 * * 0"
+
+jobs:
+  check-status:
+    name: Check Status
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.decide.outputs.should_build }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate GH_PAT
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          SCOPES=$(curl -sS -f -I -H "Authorization: token $GH_PAT" https://api.github.com | grep -i "x-oauth-scopes:" | cut -d' ' -f2- | tr -d '\r')
+          if [[ ! "$SCOPES" == *"repo"* ]] || [[ ! "$SCOPES" == *"workflow"* ]]; then
+            echo "::error::GH_PAT is missing required scopes"
+            exit 1
+          fi
+
+      - name: Decide whether to build
+        id: decide
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual trigger — building."
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # On schedule: check if it's the 2nd Sunday of the month
+          WEEK_OF_MONTH=$(date +%V)
+          DAY_OF_MONTH=$(date +%d)
+          if [ "$DAY_OF_MONTH" -ge 8 ] && [ "$DAY_OF_MONTH" -le 14 ]; then
+            echo "2nd Sunday of the month — building to prevent TestFlight expiry."
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Check for new commits in the last week
+          RECENT_COMMITS=$(git log --oneline --since="7 days ago" | wc -l)
+          if [ "$RECENT_COMMITS" -gt 0 ]; then
+            echo "Found $RECENT_COMMITS new commit(s) — building."
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No new commits and not 2nd Sunday — skipping build."
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  check-certs:
+    name: Check Certificates
+    needs: check-status
+    if: needs.check-status.outputs.should_build == 'true'
+    uses: ./.github/workflows/create_certs.yml
+    secrets: inherit
+
+  build:
+    name: Build and Upload
+    runs-on: macos-26
+    needs: [check-status, check-certs]
+    if: needs.check-status.outputs.should_build == 'true'
+    steps:
+      - name: Select Xcode
+        run: |
+          # Use latest available Xcode 26
+          XCODE_PATH=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XCODE_PATH" ]; then
+            XCODE_PATH=$(ls -d /Applications/Xcode.app 2>/dev/null)
+          fi
+          echo "Using: $XCODE_PATH"
+          sudo xcode-select --switch "$XCODE_PATH/Contents/Developer"
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Patch Match table printer
+        run: |
+          # Prevent Match from printing sensitive certificate info in logs
+          TABLE_PRINTER=$(find "$(gem environment gemdir)" -name "table_printer.rb" -path "*/match/*" 2>/dev/null | head -1)
+          if [ -n "$TABLE_PRINTER" ]; then
+            sed -i '' '/puts(googled_table)/d' "$TABLE_PRINTER" 2>/dev/null || true
+            sed -i '' '/puts(Terminal::Table.new(params))/d' "$TABLE_PRINTER" 2>/dev/null || true
+          fi
+
+      - name: Install dependencies
+        run: |
+          gem install bundler:2.5.22
+          bundle _2.5.22_ install
+
+      - name: Sync clock
+        run: sudo sntp -sS time.apple.com || true
+
+      - name: Run unit tests
+        run: |
+          set -o pipefail
+          IPAD=$(xcrun simctl list devices available | grep -o "iPad[^(]*" | head -1 | xargs)
+          echo "Testing on simulator: $IPAD"
+          xcodebuild test \
+            -project Callings.xcodeproj \
+            -scheme Callings \
+            -destination "platform=iOS Simulator,name=$IPAD" \
+            CODE_SIGNING_ALLOWED=NO | tail -100
+
+      - name: Build app
+        env:
+          TEAMID: ${{ secrets.TEAMID }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
+          FASTLANE_ISSUER_ID: ${{ secrets.FASTLANE_ISSUER_ID }}
+          FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
+        run: bundle exec fastlane build_callings
+
+      - name: Upload to TestFlight
+        env:
+          TEAMID: ${{ secrets.TEAMID }}
+          FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
+          FASTLANE_ISSUER_ID: ${{ secrets.FASTLANE_ISSUER_ID }}
+          FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
+        run: bundle exec fastlane release
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-artifacts
+          path: |
+            Callings.ipa
+            Callings.xcarchive/dSYMs/
+            fastlane/logs/
+          if-no-files-found: warn

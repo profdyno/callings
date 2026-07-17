@@ -1,0 +1,95 @@
+name: "3. Create Certificates"
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Validate Secrets
+    uses: ./.github/workflows/validate_secrets.yml
+    secrets: inherit
+
+  check-expiry:
+    name: Check Certificate Expiry
+    runs-on: macos-26
+    needs: validate
+    outputs:
+      needs_renewal: ${{ steps.check.outputs.needs_renewal }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          gem install bundler:2.5.22
+          bundle _2.5.22_ install
+
+      - name: Check certificate expiration
+        id: check
+        env:
+          TEAMID: ${{ secrets.TEAMID }}
+          FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
+          FASTLANE_ISSUER_ID: ${{ secrets.FASTLANE_ISSUER_ID }}
+          FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
+        run: |
+          bundle exec fastlane check_and_renew_certificates
+          # Fastlane may write from the project root
+          if [ -f new_certificate_needed.txt ]; then
+            RESULT=$(cat new_certificate_needed.txt)
+          elif [ -f fastlane/new_certificate_needed.txt ]; then
+            RESULT=$(cat fastlane/new_certificate_needed.txt)
+          else
+            echo "Certificate status file not found — assuming renewal needed"
+            RESULT="true"
+          fi
+          echo "needs_renewal=$RESULT" >> "$GITHUB_OUTPUT"
+          echo "Needs renewal: $RESULT"
+
+  nuke-certs:
+    name: Nuke and Recreate Certificates
+    runs-on: macos-26
+    needs: check-expiry
+    if: needs.check-expiry.outputs.needs_renewal == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          gem install bundler:2.5.22
+          bundle _2.5.22_ install
+
+      - name: Nuke and recreate certificates
+        env:
+          TEAMID: ${{ secrets.TEAMID }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
+          FASTLANE_ISSUER_ID: ${{ secrets.FASTLANE_ISSUER_ID }}
+          FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
+        run: bundle exec fastlane nuke_and_recreate
+
+  sync-certs:
+    name: Sync Certificates
+    runs-on: macos-26
+    needs: [check-expiry, nuke-certs]
+    if: always() && needs.check-expiry.result == 'success' && (needs.nuke-certs.result == 'success' || needs.nuke-certs.result == 'skipped')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          gem install bundler:2.5.22
+          bundle _2.5.22_ install
+
+      - name: Sync certificates
+        env:
+          TEAMID: ${{ secrets.TEAMID }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
+          FASTLANE_ISSUER_ID: ${{ secrets.FASTLANE_ISSUER_ID }}
+          FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
+        run: bundle exec fastlane certs
