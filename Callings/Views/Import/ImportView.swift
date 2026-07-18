@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 /// folder, which is visible in the Files app) and apply after a preview.
 struct ImportView: View {
     @Environment(WardStore.self) private var store
+    @Environment(SyncService.self) private var syncService
     @State private var showingFilePicker = false
     @State private var pendingImport: PendingImport?
     @State private var errorMessage: String?
@@ -26,24 +27,31 @@ struct ImportView: View {
                     Text("Current Data")
                 }
 
-                Section {
-                    Button {
-                        showingFilePicker = true
-                    } label: {
-                        Label("Choose PDF…", systemImage: "folder")
-                    }
-
-                    ForEach(importFolderPDFs(), id: \.self) { url in
+                if syncService.canImport {
+                    Section {
                         Button {
-                            load(url: url, needsSecurityScope: false)
+                            showingFilePicker = true
                         } label: {
-                            Label(url.lastPathComponent, systemImage: "doc.richtext")
+                            Label("Choose PDF…", systemImage: "folder")
                         }
+
+                        ForEach(importFolderPDFs(), id: \.self) { url in
+                            Button {
+                                load(url: url, needsSecurityScope: false)
+                            } label: {
+                                Label(url.lastPathComponent, systemImage: "doc.richtext")
+                            }
+                        }
+                    } header: {
+                        Text("Import")
+                    } footer: {
+                        Text("Save the \"Ward Callings\" and \"Member List for Callings\" PDFs from lcr.churchofjesuschrist.org, then pick them here or drop them into this app's import folder in the Files app. The file type is detected automatically.")
                     }
-                } header: {
-                    Text("Import")
-                } footer: {
-                    Text("Save the \"Ward Callings\" and \"Member List for Callings\" PDFs from lcr.churchofjesuschrist.org, then pick them here or drop them into this app's import folder in the Files app. The file type is detected automatically.")
+                } else {
+                    Section {
+                        Label("Imports are done by the ward owner", systemImage: "lock")
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 let placeholders = store.data.members.filter(\.isPlaceholder)

@@ -4,6 +4,7 @@ import SwiftUI
 /// member to be called, and call status.
 struct StatusMenu: View {
     @Environment(WardStore.self) private var store
+    @Environment(SyncService.self) private var syncService
     let openCallingID: UUID
 
     private var entry: OpenCalling? {
@@ -27,7 +28,7 @@ struct StatusMenu: View {
                 }
 
                 Picker("Release status", selection: binding(\.releaseStatus)) {
-                    ForEach(ReleaseStatus.allCases) { status in
+                    ForEach(ReleaseStatus.allCases.filter { syncService.canSet(releaseStatus: $0) || $0 == entry.releaseStatus }) { status in
                         Text(status.rawValue).tag(status)
                     }
                 }
@@ -42,7 +43,7 @@ struct StatusMenu: View {
                 }
 
                 Picker("Call status", selection: binding(\.callStatus)) {
-                    ForEach(CallStatus.allCases) { status in
+                    ForEach(CallStatus.allCases.filter { syncService.canSet(callStatus: $0) || $0 == entry.callStatus }) { status in
                         Text(status.rawValue).tag(status)
                     }
                 }

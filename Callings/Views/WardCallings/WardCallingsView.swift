@@ -7,6 +7,7 @@ struct WardCallingsView: View {
     @State private var editingDefinition: CallingDefinition?
     @State private var pickerEntry: OpenCalling?
     @State private var addingCalling = false
+    @State private var showingSharing = false
     @State private var path = NavigationPath()
 
     var body: some View {
@@ -38,6 +39,13 @@ struct WardCallingsView: View {
             .navigationTitle(store.data.wardName ?? "Ward Callings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showingSharing = true
+                    } label: {
+                        Label("Sharing", systemImage: "person.2")
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         addingCalling = true
@@ -49,6 +57,9 @@ struct WardCallingsView: View {
             }
             .sheet(isPresented: $addingCalling) {
                 AddCallingSheet()
+            }
+            .sheet(isPresented: $showingSharing) {
+                SharingView()
             }
             .navigationDestination(for: OrganizationKind.self) { org in
                 OrganizationView(organization: org)

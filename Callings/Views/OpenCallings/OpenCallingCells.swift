@@ -8,6 +8,7 @@ import SwiftUI
 /// Current holder with the release-status ladder (Open → Released → Announced).
 struct ReleaseStatusCell: View {
     @Environment(WardStore.self) private var store
+    @Environment(SyncService.self) private var syncService
     let currentName: String
     let entry: OpenCalling?
     let ensureEntry: () -> OpenCalling
@@ -20,6 +21,8 @@ struct ReleaseStatusCell: View {
                     updated.releaseStatus = status
                     store.updateOpenCalling(updated)
                 }
+                // Announced happens in sacrament meeting — owner only.
+                .disabled(!syncService.canSet(releaseStatus: status))
             }
         } label: {
             VStack(alignment: .leading, spacing: 0) {
@@ -40,6 +43,7 @@ struct ReleaseStatusCell: View {
 /// call-status ladder (Selected → Accepted → Sustained).
 struct ToBeCalledCell: View {
     @Environment(WardStore.self) private var store
+    @Environment(SyncService.self) private var syncService
     let entry: OpenCalling?
     let ensureEntry: () -> OpenCalling
 
@@ -71,6 +75,8 @@ struct ToBeCalledCell: View {
                             updated.callStatus = status
                             store.updateOpenCalling(updated)
                         }
+                        // Sustained happens in sacrament meeting — owner only.
+                        .disabled(!syncService.canSet(callStatus: status))
                     }
                 }
             } else {
