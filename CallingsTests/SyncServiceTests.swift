@@ -1,4 +1,5 @@
 import XCTest
+import CloudKit
 @testable import Callings
 
 @MainActor
@@ -30,6 +31,75 @@ final class SyncServiceTests: XCTestCase {
             XCTAssertTrue(service.canSet(callStatus: .sustained))
             XCTAssertTrue(service.canImport)
         }
+    }
+
+    /// Regression: an unsent local edit must survive an incoming remote
+    /// fetch. The baseline may only advance by the remote changes themselves;
+    /// fast-forwarding it to the full store state swallowed local edits made
+    /// while sync traffic was arriving (assignments/status changes appeared
+    /// to "not sync" during active two-device sessions).
+    func testRemoteApplyDoesNotSwallowUnsentLocalEdit() {
+        let (service, store) = makeService(role: .owner)
+        let definition = CallingDefinition(name: "Ward Clerk", organization: .bishopric)
+        let slot = CallingSlot(definitionID: definition.id)
+        var entry = OpenCalling(slotID: slot.id)
+        var data = WardData()
+        data.callingDefinitions = [definition]
+        data.callingSlots = [slot]
+        data.openCallings = [entry]
+        store.apply(data)
+
+        // Everything is synced: baseline == store.
+        service.stateStore.baseline = store.data
+
+        // Local edit that hasn't been enqueued yet (debounce pending).
+        entry.assignedTo = .bishop
+        store.updateOpenCalling(entry)
+
+        // A remote fetch arrives for an unrelated record.
+        let zoneID = CKRecordZone.ID(zoneName: "WardZone", ownerName: CKCurrentUserDefaultName)
+        let remoteMember = Member(name: "Remote, Person")
+        let record = CKRecord(
+            recordType: "Member",
+            recordID: CKRecord.ID(recordName: CKRecordMapper.recordName(forMember: remoteMember.id), zoneID: zoneID)
+        )
+        CKRecordMapper.populate(record, from: remoteMember)
+        service.apply(modifications: [record], deletions: [])
+
+        // The remote member landed in both store and baseline...
+        XCTAssertTrue(store.data.members.contains { $0.id == remoteMember.id })
+        // ...but the unsent local edit still differs from the baseline, so
+        // the next diff will enqueue it.
+        let changes = SnapshotDiffer.diff(baseline: service.stateStore.baseline!, current: store.data)
+        XCTAssertEqual(changes.savedRecordNames, [CKRecordMapper.recordName(forOpenCalling: entry.id)])
+    }
+
+    func testRemoteApplyOfSameRecordWinsOverUnsentEdit() {
+        let (service, store) = makeService(role: .owner)
+        var entry = OpenCalling(slotID: UUID())
+        var data = WardData()
+        data.openCallings = [entry]
+        store.apply(data)
+        service.stateStore.baseline = store.data
+
+        // Unsent local edit, then a remote update to the SAME entry arrives.
+        entry.notes = "local edit"
+        store.updateOpenCalling(entry)
+
+        var remoteEntry = entry
+        remoteEntry.notes = "remote edit"
+        let zoneID = CKRecordZone.ID(zoneName: "WardZone", ownerName: CKCurrentUserDefaultName)
+        let record = CKRecord(
+            recordType: "OpenCalling",
+            recordID: CKRecord.ID(recordName: CKRecordMapper.recordName(forOpenCalling: entry.id), zoneID: zoneID)
+        )
+        CKRecordMapper.populate(record, from: remoteEntry)
+        service.apply(modifications: [record], deletions: [])
+
+        // Remote apply is authoritative for that record, and no stale
+        // re-send is queued (baseline matches the store).
+        XCTAssertEqual(store.data.openCallings[0].notes, "remote edit")
+        XCTAssertTrue(SnapshotDiffer.diff(baseline: service.stateStore.baseline!, current: store.data).isEmpty)
     }
 
     func testReconcileArchivesDanglingEntriesAfterRemoteImport() {

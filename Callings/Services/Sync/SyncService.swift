@@ -42,8 +42,8 @@ final class SyncService {
     init(store: WardStore, stateStore: SyncStateStore = SyncStateStore()) {
         self.store = store
         self.stateStore = stateStore
-        store.syncObserver = { [weak self] data in
-            self?.scheduleDiff(current: data)
+        store.syncObserver = { [weak self] _ in
+            self?.scheduleDiff()
         }
     }
 
@@ -82,7 +82,7 @@ final class SyncService {
         startIfEnabled()
         engine?.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: zoneID))])
         stateStore.baseline = WardData()
-        scheduleDiff(current: store.data, immediate: true)
+        scheduleDiff(immediate: true)
     }
 
     /// Participant enable, after accepting a share into `zoneOwnerName`'s zone.
@@ -120,9 +120,12 @@ final class SyncService {
 
     var canImport: Bool { isOwner }
 
+    /// Deleting a calling change discards workflow history — owner only.
+    var canDeleteOpenCallings: Bool { isOwner }
+
     // MARK: - Outbound
 
-    private func scheduleDiff(current: WardData, immediate: Bool = false) {
+    private func scheduleDiff(immediate: Bool = false) {
         guard engine != nil else { return }
         diffTask?.cancel()
         diffTask = Task { [weak self] in
@@ -130,7 +133,11 @@ final class SyncService {
                 try? await Task.sleep(for: .milliseconds(500))
                 guard !Task.isCancelled else { return }
             }
-            self?.enqueueDiff(current: current)
+            // Always diff the LIVE store state: a snapshot captured at
+            // schedule time could be older than remote changes applied since,
+            // and enqueueing from it would revert them.
+            guard let self else { return }
+            self.enqueueDiff(current: self.store.data)
         }
     }
 
@@ -192,59 +199,74 @@ final class SyncService {
 
     // MARK: - Inbound
 
-    private func apply(modifications: [CKRecord], deletions: [CKRecord.ID]) {
+    /// Applies fetched records/deletions to the store AND, identically, to
+    /// the diff baseline. The baseline must advance by exactly the remote
+    /// changes — fast-forwarding it to the full store state would swallow
+    /// any local edits that haven't been enqueued yet.
+    func apply(modifications: [CKRecord], deletions: [CKRecord.ID]) {
         var sawImportGenerationChange = false
         let previousGeneration = store.data.importGeneration
 
+        for record in modifications {
+            stateStore.archiveSystemFields(of: record)
+        }
+        for recordID in deletions {
+            stateStore.removeSystemFields(recordName: recordID.recordName)
+        }
+
         store.applyRemote { data in
-            for record in modifications {
-                stateStore.archiveSystemFields(of: record)
-                switch record.recordType {
-                case CKRecordMapper.RecordType.member:
-                    if let model = CKRecordMapper.member(from: record) {
-                        upsert(model, into: &data.members)
-                    }
-                case CKRecordMapper.RecordType.callingDefinition:
-                    if let model = CKRecordMapper.callingDefinition(from: record) {
-                        upsert(model, into: &data.callingDefinitions)
-                    }
-                case CKRecordMapper.RecordType.callingSlot:
-                    if let model = CKRecordMapper.callingSlot(from: record) {
-                        upsert(model, into: &data.callingSlots)
-                    }
-                case CKRecordMapper.RecordType.openCalling:
-                    if let model = CKRecordMapper.openCalling(from: record) {
-                        upsert(model, into: &data.openCallings)
-                    }
-                case CKRecordMapper.RecordType.wardMeta:
-                    let meta = CKRecordMapper.wardMeta(from: record)
-                    data.wardName = meta.wardName
-                    data.lastCallingsImport = meta.lastCallingsImport
-                    data.lastRosterImport = meta.lastRosterImport
-                    if meta.importGeneration != previousGeneration {
-                        sawImportGenerationChange = true
-                    }
-                    data.importGeneration = meta.importGeneration
-                default:
-                    break
-                }
-            }
-            for recordID in deletions {
-                guard let parsed = CKRecordMapper.parse(recordName: recordID.recordName), let id = parsed.id else { continue }
-                stateStore.removeSystemFields(recordName: recordID.recordName)
-                switch parsed.type {
-                case CKRecordMapper.RecordType.member: data.members.removeAll { $0.id == id }
-                case CKRecordMapper.RecordType.callingDefinition: data.callingDefinitions.removeAll { $0.id == id }
-                case CKRecordMapper.RecordType.callingSlot: data.callingSlots.removeAll { $0.id == id }
-                case CKRecordMapper.RecordType.openCalling: data.openCallings.removeAll { $0.id == id }
-                default: break
-                }
+            Self.integrate(modifications: modifications, deletions: deletions, into: &data)
+            if data.importGeneration != previousGeneration {
+                sawImportGenerationChange = true
             }
         }
-        // Keep the baseline in step so remote changes don't re-diff as local.
-        stateStore.baseline = store.data
+        var baseline = stateStore.baseline ?? WardData()
+        Self.integrate(modifications: modifications, deletions: deletions, into: &baseline)
+        stateStore.baseline = baseline
+
         if sawImportGenerationChange {
             reconcileAfterRemoteImport()
+        }
+    }
+
+    static func integrate(modifications: [CKRecord], deletions: [CKRecord.ID], into data: inout WardData) {
+        for record in modifications {
+            switch record.recordType {
+            case CKRecordMapper.RecordType.member:
+                if let model = CKRecordMapper.member(from: record) {
+                    upsert(model, into: &data.members)
+                }
+            case CKRecordMapper.RecordType.callingDefinition:
+                if let model = CKRecordMapper.callingDefinition(from: record) {
+                    upsert(model, into: &data.callingDefinitions)
+                }
+            case CKRecordMapper.RecordType.callingSlot:
+                if let model = CKRecordMapper.callingSlot(from: record) {
+                    upsert(model, into: &data.callingSlots)
+                }
+            case CKRecordMapper.RecordType.openCalling:
+                if let model = CKRecordMapper.openCalling(from: record) {
+                    upsert(model, into: &data.openCallings)
+                }
+            case CKRecordMapper.RecordType.wardMeta:
+                let meta = CKRecordMapper.wardMeta(from: record)
+                data.wardName = meta.wardName
+                data.lastCallingsImport = meta.lastCallingsImport
+                data.lastRosterImport = meta.lastRosterImport
+                data.importGeneration = meta.importGeneration
+            default:
+                break
+            }
+        }
+        for recordID in deletions {
+            guard let parsed = CKRecordMapper.parse(recordName: recordID.recordName), let id = parsed.id else { continue }
+            switch parsed.type {
+            case CKRecordMapper.RecordType.member: data.members.removeAll { $0.id == id }
+            case CKRecordMapper.RecordType.callingDefinition: data.callingDefinitions.removeAll { $0.id == id }
+            case CKRecordMapper.RecordType.callingSlot: data.callingSlots.removeAll { $0.id == id }
+            case CKRecordMapper.RecordType.openCalling: data.openCallings.removeAll { $0.id == id }
+            default: break
+            }
         }
     }
 
@@ -255,17 +277,23 @@ final class SyncService {
         let slotIDs = Set(store.data.callingSlots.map(\.id))
         let dangling = store.data.openCallings.filter { !$0.isArchived && !slotIDs.contains($0.slotID) }
         guard !dangling.isEmpty else { return }
-        store.applyRemote { data in
+        let archivedAt = Date()
+        func archive(in data: inout WardData) {
             for entry in dangling {
                 guard let index = data.openCallings.firstIndex(where: { $0.id == entry.id }) else { continue }
                 data.openCallings[index].isArchived = true
-                data.openCallings[index].archivedAt = .now
+                data.openCallings[index].archivedAt = archivedAt
             }
         }
-        stateStore.baseline = store.data
+        store.applyRemote { archive(in: &$0) }
+        // Mirror only this change into the baseline — never fast-forward it,
+        // or unsent local edits would be swallowed.
+        var baseline = stateStore.baseline ?? WardData()
+        archive(in: &baseline)
+        stateStore.baseline = baseline
     }
 
-    private func upsert<T: Identifiable>(_ model: T, into array: inout [T]) {
+    private static func upsert<T: Identifiable>(_ model: T, into array: inout [T]) {
         if let index = array.firstIndex(where: { $0.id == model.id }) {
             array[index] = model
         } else {

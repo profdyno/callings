@@ -5,6 +5,7 @@ import SwiftUI
 /// candidate picker. Optional highlights: vacant callings and long tenure.
 struct CallingRowView: View {
     @Environment(WardStore.self) private var store
+    @Environment(SyncService.self) private var syncService
     let slot: CallingSlot
     @Binding var editingDefinition: CallingDefinition?
     @Binding var pickerEntry: OpenCalling?
@@ -45,10 +46,12 @@ struct CallingRowView: View {
                 Label("Details…", systemImage: "info.circle")
             }
             if let entry = openEntry {
-                Button(role: .destructive) {
-                    store.removeOpenCalling(entry.id)
-                } label: {
-                    Label("Remove from Open Callings", systemImage: "rectangle.stack.badge.minus")
+                if syncService.canDeleteOpenCallings {
+                    Button(role: .destructive) {
+                        store.removeOpenCalling(entry.id)
+                    } label: {
+                        Label("Remove from Open Callings", systemImage: "rectangle.stack.badge.minus")
+                    }
                 }
             } else {
                 Button {

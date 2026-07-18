@@ -4,6 +4,7 @@ import SwiftUI
 /// target), members needing callings, and members with callings.
 struct CallingDetailView: View {
     @Environment(WardStore.self) private var store
+    @Environment(SyncService.self) private var syncService
     let slotID: UUID
     @State private var showingPicker = false
     @State private var editingDefinition: CallingDefinition?
@@ -60,10 +61,12 @@ struct CallingDetailView: View {
                     GroupBox("Open Calling") {
                         VStack(alignment: .leading, spacing: 8) {
                             StatusMenu(openCallingID: openEntry.id)
-                            Button(role: .destructive) {
-                                store.removeOpenCalling(openEntry.id)
-                            } label: {
-                                Label("Remove from Open Callings", systemImage: "trash")
+                            if syncService.canDeleteOpenCallings {
+                                Button(role: .destructive) {
+                                    store.removeOpenCalling(openEntry.id)
+                                } label: {
+                                    Label("Remove from Open Callings", systemImage: "trash")
+                                }
                             }
                         }
                     }

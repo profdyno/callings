@@ -4,6 +4,7 @@ import SwiftUI
 /// sorted by group then calling display order.
 struct OpenCallingsView: View {
     @Environment(WardStore.self) private var store
+    @Environment(SyncService.self) private var syncService
     @State private var showArchived = false
     @State private var pickerEntry: OpenCalling?
     @State private var editingDefinition: CallingDefinition?
@@ -101,14 +102,16 @@ struct OpenCallingsView: View {
     private var table: some View {
         Table(rows) {
             TableColumn("") { row in
-                Button(role: .destructive) {
-                    store.removeOpenCalling(row.entry.id)
-                } label: {
-                    Image(systemName: "trash")
-                        .foregroundStyle(.red)
+                if syncService.canDeleteOpenCallings {
+                    Button(role: .destructive) {
+                        store.removeOpenCalling(row.entry.id)
+                    } label: {
+                        Image(systemName: "trash")
+                            .foregroundStyle(.red)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Delete this calling change")
                 }
-                .buttonStyle(.plain)
-                .help("Delete this calling change")
             }
             .width(28)
 
@@ -178,6 +181,7 @@ struct OpenCallingsView: View {
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }
+                .disabled(!syncService.canDeleteOpenCallings)
             }
         }
     }
@@ -214,10 +218,12 @@ struct OpenCallingsView: View {
                 .font(.subheadline)
             }
             .swipeActions {
-                Button(role: .destructive) {
-                    store.removeOpenCalling(entry.id)
-                } label: {
-                    Label("Delete", systemImage: "trash")
+                if syncService.canDeleteOpenCallings {
+                    Button(role: .destructive) {
+                        store.removeOpenCalling(entry.id)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
                 }
             }
         }
