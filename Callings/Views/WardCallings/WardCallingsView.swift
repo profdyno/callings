@@ -40,10 +40,14 @@ struct WardCallingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        showingSharing = true
+                    Menu {
+                        Button {
+                            showingSharing = true
+                        } label: {
+                            Label("Sharing…", systemImage: "person.2")
+                        }
                     } label: {
-                        Label("Sharing", systemImage: "person.2")
+                        Label("More", systemImage: "ellipsis.circle")
                     }
                 }
                 ToolbarItem(placement: .primaryAction) {

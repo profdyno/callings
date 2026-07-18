@@ -13,6 +13,8 @@ struct SharingView: View {
     @State private var busy = false
     @State private var errorMessage: String?
     @State private var confirmingReset = false
+    @State private var confirmingResync = false
+    @State private var resyncing = false
 
     var body: some View {
         NavigationStack {
@@ -26,12 +28,44 @@ struct SharingView: View {
                     participantSection
                 }
 
+                if syncService.role != .solo {
+                    Section {
+                        Button {
+                            confirmingResync = true
+                        } label: {
+                            if resyncing {
+                                ProgressView()
+                            } else {
+                                Label("Re-download All Data…", systemImage: "icloud.and.arrow.down")
+                            }
+                        }
+                        .disabled(resyncing)
+                    } footer: {
+                        Text("Replaces everything on this iPad with the shared ward data from iCloud. Use this if this iPad looks out of step with the others. Changes made here that never synced are lost.")
+                    }
+                }
+
                 if let errorMessage {
                     Section { Text(errorMessage).foregroundStyle(.red) }
                 }
             }
             .navigationTitle("Sharing")
             .navigationBarTitleDisplayMode(.inline)
+            .confirmationDialog(
+                "Replace this iPad's data with the shared ward from iCloud?",
+                isPresented: $confirmingResync,
+                titleVisibility: .visible
+            ) {
+                Button("Re-download All Data", role: .destructive) {
+                    resyncing = true
+                    Task {
+                        await syncService.resyncFromServer()
+                        resyncing = false
+                    }
+                }
+            } message: {
+                Text("Any changes on this iPad that never synced will be lost.")
+            }
             .confirmationDialog(
                 "Stop sharing and reset sync?",
                 isPresented: $confirmingReset,

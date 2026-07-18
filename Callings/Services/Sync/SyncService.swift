@@ -102,6 +102,30 @@ final class SyncService {
         stateStore.reset()
     }
 
+    /// Discards ALL local data and sync state (keeping the role) so a fresh
+    /// engine re-downloads the entire ward from iCloud. Recovery tool for a
+    /// device whose local state has drifted; unsynced local changes are lost
+    /// by design.
+    func resyncFromServer() async {
+        guard stateStore.settings.role != .solo else { return }
+        prepareForResync()
+        startIfEnabled()
+        await fetchNow()
+    }
+
+    /// The synchronous part of a full resync, separated for testability:
+    /// stops the engine and wipes data, baseline, engine state, and record
+    /// system fields — everything except the sync settings.
+    func prepareForResync() {
+        diffTask?.cancel()
+        stop()
+        let settings = stateStore.settings
+        stateStore.reset()
+        stateStore.settings = settings
+        stateStore.baseline = WardData()
+        store.applyRemote { $0 = WardData() }
+    }
+
     func fetchNow() async {
         try? await engine?.fetchChanges()
     }

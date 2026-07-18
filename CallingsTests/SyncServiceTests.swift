@@ -102,6 +102,23 @@ final class SyncServiceTests: XCTestCase {
         XCTAssertTrue(SnapshotDiffer.diff(baseline: service.stateStore.baseline!, current: store.data).isEmpty)
     }
 
+    func testPrepareForResyncWipesDataButKeepsRole() {
+        let (service, store) = makeService(role: .participant)
+        service.stateStore.settings.zoneOwnerName = "_owner"
+        var data = WardData()
+        data.members = [Member(name: "Stale, Person")]
+        store.apply(data)
+        service.stateStore.baseline = store.data
+
+        service.prepareForResync()
+
+        XCTAssertTrue(store.data.members.isEmpty, "local data wiped for re-download")
+        XCTAssertEqual(service.stateStore.baseline, WardData())
+        XCTAssertNil(service.stateStore.engineStateData, "engine refetches from scratch")
+        XCTAssertEqual(service.stateStore.settings.role, .participant, "role survives")
+        XCTAssertEqual(service.stateStore.settings.zoneOwnerName, "_owner")
+    }
+
     func testReconcileArchivesDanglingEntriesAfterRemoteImport() {
         let (service, store) = makeService(role: .participant)
         let definition = CallingDefinition(name: "Ward Clerk", organization: .bishopric)

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Root persisted document containing all ward data tables.
-struct WardData: Codable {
+struct WardData: Codable, Equatable {
     var schemaVersion: Int = 1
     var wardName: String?
     var members: [Member] = []
