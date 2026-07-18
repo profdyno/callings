@@ -8,7 +8,7 @@ struct CallingRowView: View {
     @Environment(SyncService.self) private var syncService
     let slot: CallingSlot
     @Binding var editingDefinition: CallingDefinition?
-    @Binding var pickerEntry: OpenCalling?
+    @Binding var pickerSlot: CallingSlot?
 
     private var definition: CallingDefinition? { store.definition(for: slot) }
     private var holder: Member? { store.member(slot.memberID) }
@@ -24,7 +24,9 @@ struct CallingRowView: View {
     var body: some View {
         GridRow {
             Button {
-                pickerEntry = store.openCallingEntry(for: slot)
+                // The picker creates the open entry only if a candidate is
+                // actually selected.
+                pickerSlot = slot
             } label: {
                 Text(definition?.nameWithinOrganization ?? "—")
                     .font(.subheadline)

@@ -17,9 +17,6 @@ struct CandidatesColumnView: View {
                     .font(.headline)
                 Spacer()
                 Button {
-                    if openEntry == nil, let slot = store.slotsByID[slotID] {
-                        store.openCallingEntry(for: slot)
-                    }
                     showingPicker = true
                 } label: {
                     Image(systemName: "plus.circle")

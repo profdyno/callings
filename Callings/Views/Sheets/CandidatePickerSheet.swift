@@ -3,20 +3,22 @@ import SwiftUI
 /// Filtered candidate picker: members matching the calling's criteria, with
 /// name, current calling (blank if none), and an editable category column.
 /// Tapping a row toggles the member as a candidate.
+///
+/// The open-calling entry is created lazily on the FIRST candidate selection:
+/// opening and closing the picker without picking anyone does not initiate a
+/// calling change (and doesn't turn the calling red).
 struct CandidatePickerSheet: View {
     @Environment(WardStore.self) private var store
     @Environment(\.dismiss) private var dismiss
-    let openCallingID: UUID
-    let definitionID: UUID
+    let slotID: UUID
     @State private var searchText = ""
     @State private var ignoreCriteria = false
     @State private var editingDefinition: CallingDefinition?
+    @State private var createdEntryID: UUID?
 
-    private var definition: CallingDefinition? { store.definitionsByID[definitionID] }
-
-    private var openEntry: OpenCalling? {
-        store.data.openCallings.first { $0.id == openCallingID }
-    }
+    private var slot: CallingSlot? { store.slotsByID[slotID] }
+    private var definition: CallingDefinition? { slot.flatMap { store.definition(for: $0) } }
+    private var openEntry: OpenCalling? { store.openCalling(forSlot: slotID) }
 
     private var candidates: [Member] {
         var members = ignoreCriteria
@@ -53,6 +55,15 @@ struct CandidatePickerSheet: View {
                 CallingEditorSheet(definition: definition)
             }
         }
+        .onDisappear {
+            // If this picker session created the entry but ended with no
+            // candidates, no calling change was initiated — remove it.
+            if let id = createdEntryID,
+               let entry = store.data.openCallings.first(where: { $0.id == id }),
+               !entry.isArchived, entry.candidateIDs.isEmpty {
+                store.removeOpenCalling(id)
+            }
+        }
     }
 
     @ViewBuilder
@@ -78,7 +89,17 @@ struct CandidatePickerSheet: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            store.toggleCandidate(member.id, for: openCallingID)
+            toggle(member)
+        }
+    }
+
+    private func toggle(_ member: Member) {
+        if let entry = openEntry {
+            store.toggleCandidate(member.id, for: entry.id)
+        } else if let slot {
+            let entry = store.openCallingEntry(for: slot)
+            store.addCandidate(member.id, for: entry.id)
+            createdEntryID = entry.id
         }
     }
 }

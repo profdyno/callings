@@ -45,9 +45,7 @@ struct OpenCallingsView: View {
                 Text("The action checklist is on the clipboard as markdown — paste it into Notes, a message, or an email.")
             }
             .sheet(item: $pickerEntry) { entry in
-                if let definition = definition(for: entry) {
-                    CandidatePickerSheet(openCallingID: entry.id, definitionID: definition.id)
-                }
+                CandidatePickerSheet(slotID: entry.slotID)
             }
             .sheet(item: $editingDefinition) { definition in
                 CallingEditorSheet(definition: definition)
@@ -151,9 +149,9 @@ struct OpenCallingsView: View {
             .width(min: 85, ideal: 105)
 
             TableColumn("Candidates") { row in
-                CandidatesCell(entry: row.entry, ensureEntry: { row.entry }, openPicker: { entry in
-                    pickerEntry = entry
-                })
+                CandidatesCell(entry: row.entry) {
+                    pickerEntry = row.entry
+                }
             }
             .width(min: 160)
 

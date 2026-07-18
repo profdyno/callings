@@ -5,7 +5,7 @@ import SwiftUI
 struct WardCallingsView: View {
     @Environment(WardStore.self) private var store
     @State private var editingDefinition: CallingDefinition?
-    @State private var pickerEntry: OpenCalling?
+    @State private var pickerSlot: CallingSlot?
     @State private var addingCalling = false
     @State private var showingSharing = false
     @State private var path = NavigationPath()
@@ -27,7 +27,7 @@ struct WardCallingsView: View {
                                     OrganizationCardView(
                                         organization: org,
                                         editingDefinition: $editingDefinition,
-                                        pickerEntry: $pickerEntry
+                                        pickerSlot: $pickerSlot
                                     )
                                 }
                             }
@@ -70,11 +70,8 @@ struct WardCallingsView: View {
             .sheet(item: $editingDefinition) { definition in
                 CallingEditorSheet(definition: definition)
             }
-            .sheet(item: $pickerEntry) { entry in
-                if let slot = store.slotsByID[entry.slotID],
-                   let definition = store.definition(for: slot) {
-                    CandidatePickerSheet(openCallingID: entry.id, definitionID: definition.id)
-                }
+            .sheet(item: $pickerSlot) { slot in
+                CandidatePickerSheet(slotID: slot.id)
             }
             .onAppear {
                 // Launch-argument hook for automated screenshots and UI tests.

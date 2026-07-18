@@ -6,7 +6,7 @@ import SwiftUI
 struct OrganizationView: View {
     @Environment(WardStore.self) private var store
     let organization: OrganizationKind
-    @State private var pickerEntry: OpenCalling?
+    @State private var pickerSlot: CallingSlot?
     @State private var editingDefinition: CallingDefinition?
     @State private var addingCalling = false
 
@@ -78,11 +78,9 @@ struct OrganizationView: View {
             .width(min: 85, ideal: 105)
 
             TableColumn("Candidates") { row in
-                CandidatesCell(entry: row.entry, ensureEntry: {
-                    store.openCallingEntry(for: row.slot)
-                }, openPicker: { entry in
-                    pickerEntry = entry
-                })
+                CandidatesCell(entry: row.entry) {
+                    pickerSlot = row.slot
+                }
             }
             .width(min: 160)
 
@@ -114,11 +112,8 @@ struct OrganizationView: View {
         .sheet(isPresented: $addingCalling) {
             AddCallingSheet(organization: organization)
         }
-        .sheet(item: $pickerEntry) { entry in
-            if let slot = store.slotsByID[entry.slotID],
-               let definition = store.definition(for: slot) {
-                CandidatePickerSheet(openCallingID: entry.id, definitionID: definition.id)
-            }
+        .sheet(item: $pickerSlot) { slot in
+            CandidatePickerSheet(slotID: slot.id)
         }
         .sheet(item: $editingDefinition) { definition in
             CallingEditorSheet(definition: definition)

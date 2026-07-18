@@ -6,7 +6,7 @@ struct OrganizationCardView: View {
     @Environment(WardStore.self) private var store
     let organization: OrganizationKind
     @Binding var editingDefinition: CallingDefinition?
-    @Binding var pickerEntry: OpenCalling?
+    @Binding var pickerSlot: CallingSlot?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -36,7 +36,7 @@ struct OrganizationCardView: View {
                         }
                     }
                     ForEach(group.slots) { slot in
-                        CallingRowView(slot: slot, editingDefinition: $editingDefinition, pickerEntry: $pickerEntry)
+                        CallingRowView(slot: slot, editingDefinition: $editingDefinition, pickerSlot: $pickerSlot)
                     }
                 }
             }

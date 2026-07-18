@@ -117,17 +117,16 @@ struct AssignedCell: View {
     }
 }
 
-/// Candidate names; tapping opens the candidate picker (starting the entry
-/// when needed).
+/// Candidate names; tapping opens the candidate picker. The picker itself
+/// creates the open-calling entry only when a candidate is actually selected.
 struct CandidatesCell: View {
     @Environment(WardStore.self) private var store
     let entry: OpenCalling?
-    let ensureEntry: () -> OpenCalling
-    let openPicker: (OpenCalling) -> Void
+    let openPicker: () -> Void
 
     var body: some View {
         Button {
-            openPicker(ensureEntry())
+            openPicker()
         } label: {
             let names = (entry?.candidateIDs ?? []).compactMap { store.member($0)?.displayName }
             Text(names.isEmpty ? "Add…" : names.joined(separator: ", "))
