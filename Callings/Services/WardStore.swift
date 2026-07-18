@@ -13,6 +13,13 @@ final class WardStore {
 
     private let persistence: PersistenceService
 
+    /// Called after every local mutation with the new data — the sync layer
+    /// diffs against its baseline and enqueues record changes.
+    @ObservationIgnored var syncObserver: ((WardData) -> Void)?
+    /// True while remote changes are being applied, so they don't re-enter
+    /// the sync layer as local changes.
+    @ObservationIgnored private var isApplyingRemote = false
+
     init(persistence: PersistenceService = PersistenceService()) {
         self.persistence = persistence
         self.data = persistence.load() ?? WardData()
@@ -20,6 +27,18 @@ final class WardStore {
 
     private func save() {
         persistence.scheduleSave(data)
+        if !isApplyingRemote {
+            syncObserver?(data)
+        }
+    }
+
+    /// Entry point for the sync layer: mutate the store with remote changes
+    /// without echoing them back out.
+    func applyRemote(_ mutate: (inout WardData) -> Void) {
+        isApplyingRemote = true
+        mutate(&data)
+        persistence.scheduleSave(data)
+        isApplyingRemote = false
     }
 
     // MARK: - Lookups

@@ -256,6 +256,7 @@ enum ImportReconciler {
         data.callingSlots = newSlots
         data.wardName = parsed.wardName ?? data.wardName
         data.lastCallingsImport = .now
+        data.importGeneration += 1
         return (data, summary)
     }
 
