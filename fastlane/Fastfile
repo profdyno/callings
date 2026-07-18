@@ -77,6 +77,27 @@ platform :ios do
       UI.success("App ID already exists: #{APP_IDENTIFIER}")
     end
 
+    # Enable iCloud with CloudKit support. XCODE_6 = CloudKit; XCODE_5 (as
+    # used by habits) is iCloud Documents only and will NOT work for CloudKit.
+    caps = bundle_id.get_capabilities
+    unless caps.find { |c| c.capability_type == "ICLOUD" }
+      bundle_id.create_capability("ICLOUD", settings: [
+        { key: "ICLOUD_VERSION", options: [{ key: "XCODE_6" }] }
+      ])
+      UI.success("Enabled iCloud (CloudKit) capability")
+    else
+      UI.success("iCloud capability already configured")
+    end
+
+    # CloudKit's silent sync pushes require the push capability on the App ID
+    # (iCloud does not imply it); no APNs key is needed.
+    unless caps.find { |c| c.capability_type == "PUSH_NOTIFICATIONS" }
+      bundle_id.create_capability("PUSH_NOTIFICATIONS")
+      UI.success("Enabled Push Notifications capability")
+    else
+      UI.success("Push Notifications capability already configured")
+    end
+
     # Note: The App Store Connect app entry will be created automatically
     # when the first build is uploaded to TestFlight. If you want to create
     # it manually beforehand, go to appstoreconnect.apple.com → My Apps → +
@@ -108,6 +129,33 @@ platform :ios do
       api_key: api_key,
       git_basic_authorization: Base64.strict_encode64("#{GITHUB_REPOSITORY_OWNER}:#{GH_PAT}"),
       force_for_new_devices: false,
+      readonly: false
+    )
+  end
+
+  # ──────────────────────────────────────────────
+  # Lane: force_profiles
+  # ──────────────────────────────────────────────
+  # Regenerates this app's provisioning profile after App ID capability
+  # changes. NEVER use nuke_and_recreate for that — match_nuke revokes the
+  # distribution certificate shared with the habits app.
+  desc "Force-regenerate the provisioning profile after capability changes"
+  lane :force_profiles do
+    setup_ci
+
+    api_key = app_store_connect_api_key(
+      key_id: "#{FASTLANE_KEY_ID}",
+      issuer_id: "#{FASTLANE_ISSUER_ID}",
+      key_content: "#{FASTLANE_KEY}",
+      in_house: false
+    )
+
+    match(
+      type: "appstore",
+      app_identifier: [APP_IDENTIFIER],
+      api_key: api_key,
+      git_basic_authorization: Base64.strict_encode64("#{GITHUB_REPOSITORY_OWNER}:#{GH_PAT}"),
+      force: true,
       readonly: false
     )
   end

@@ -26,6 +26,9 @@ targets:
         UILaunchScreen: {}
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
+        CKSharingSupported: true
+        UIBackgroundModes:
+          - remote-notification
         UISupportedInterfaceOrientations~ipad:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationPortraitUpsideDown
@@ -36,6 +39,14 @@ targets:
             UTTypeDescription: Ward Member
             UTTypeConformsTo:
               - public.data
+    entitlements:
+      path: Callings/Callings.entitlements
+      properties:
+        com.apple.developer.icloud-services:
+          - CloudKit
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.com.profdyno.callings
+        aps-environment: development
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.$(DEVELOPMENT_TEAM).callings.Callings
