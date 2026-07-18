@@ -72,4 +72,10 @@ final class ShareCoordinator {
             await accept(metadata)
         }
     }
+
+    /// Drops the cached share (used when sharing is reset so the next
+    /// ensureShare creates a fresh one in the current environment).
+    func reset() {
+        share = nil
+    }
 }

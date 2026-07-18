@@ -68,3 +68,10 @@ Lessons learned building this app — review before touching the parsers or CI.
   geometry in `MemberListParser.correctingLigatures` (ligature glyphs are
   ~25%+ wider than the real letters); thresholds are calibrated to the
   report's body font and guarded by height to skip the footer font.
+- **CloudKit data does not cross environments.** Xcode dev builds write to
+  the Development environment; TestFlight/App Store builds use Production.
+  Starting the share from a dev build uploads data + share to Development —
+  the schema deploy copies only the SCHEMA to Production, never records.
+  Owner must run "Start Sharing" from the same kind of build participants
+  use (TestFlight). The Sharing screen now shows the environment, and the
+  owner has a Stop Sharing & Reset button to redo setup.

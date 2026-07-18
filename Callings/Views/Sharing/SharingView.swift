@@ -12,6 +12,7 @@ struct SharingView: View {
     @State private var presentingShareSheet = false
     @State private var busy = false
     @State private var errorMessage: String?
+    @State private var confirmingReset = false
 
     var body: some View {
         NavigationStack {
@@ -31,6 +32,18 @@ struct SharingView: View {
             }
             .navigationTitle("Sharing")
             .navigationBarTitleDisplayMode(.inline)
+            .confirmationDialog(
+                "Stop sharing and reset sync?",
+                isPresented: $confirmingReset,
+                titleVisibility: .visible
+            ) {
+                Button("Stop Sharing & Reset", role: .destructive) {
+                    syncService.disable()
+                    shareCoordinator.reset()
+                }
+            } message: {
+                Text("All data stays on this iPad. Participants lose access until you share again and send new invitations.")
+            }
             .sheet(isPresented: $presentingShareSheet) {
                 if let share = shareCoordinator.share {
                     CloudSharingControllerRepresentable(
@@ -66,6 +79,7 @@ struct SharingView: View {
     private var ownerSection: some View {
         Section {
             LabeledContent("Role", value: "Owner")
+            LabeledContent("Environment", value: Self.environmentLabel)
             LabeledContent("Sync") {
                 syncStatusLabel
             }
@@ -82,9 +96,27 @@ struct SharingView: View {
             } label: {
                 Label("Sync Now", systemImage: "arrow.triangle.2.circlepath")
             }
+            Button(role: .destructive) {
+                confirmingReset = true
+            } label: {
+                Label("Stop Sharing & Reset…", systemImage: "arrow.counterclockwise")
+            }
         } header: {
             Text("Shared Ward")
+        } footer: {
+            Text("Resetting keeps all data on this iPad and returns to not-shared. Use it to start sharing over (participants will need a new invitation).")
         }
+    }
+
+    /// Xcode builds use CloudKit's Development environment; TestFlight and
+    /// App Store builds use Production. Data does NOT cross environments —
+    /// sharing must be started from the same kind of build participants use.
+    static var environmentLabel: String {
+        #if DEBUG
+        "Development (Xcode build)"
+        #else
+        "Production"
+        #endif
     }
 
     private var participantSection: some View {
