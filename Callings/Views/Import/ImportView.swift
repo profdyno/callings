@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 struct ImportView: View {
     @Environment(WardStore.self) private var store
     @Environment(SyncService.self) private var syncService
+    @Environment(\.dismiss) private var dismiss
     @State private var showingFilePicker = false
     @State private var pendingImport: PendingImport?
     @State private var errorMessage: String?
@@ -85,6 +86,11 @@ struct ImportView: View {
             }
             .navigationTitle("Import")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
             .fileImporter(isPresented: $showingFilePicker, allowedContentTypes: [.pdf]) { result in
                 if case .success(let url) = result {
                     load(url: url, needsSecurityScope: true)

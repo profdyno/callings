@@ -7,7 +7,6 @@ struct ContentView: View {
         case wardCallings
         case openCallings
         case reports
-        case importData
     }
 
     init() {
@@ -17,7 +16,6 @@ struct ContentView: View {
             switch arguments[index + 1] {
             case "open": _selectedTab = State(initialValue: .openCallings)
             case "reports": _selectedTab = State(initialValue: .reports)
-            case "import": _selectedTab = State(initialValue: .importData)
             default: _selectedTab = State(initialValue: .wardCallings)
             }
         } else {
@@ -36,9 +34,6 @@ struct ContentView: View {
             ReportsView()
                 .tabItem { Label("Reports", systemImage: "list.clipboard") }
                 .tag(Tab.reports)
-            ImportView()
-                .tabItem { Label("Import", systemImage: "square.and.arrow.down") }
-                .tag(Tab.importData)
         }
     }
 }

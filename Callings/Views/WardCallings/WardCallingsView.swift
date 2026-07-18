@@ -8,6 +8,7 @@ struct WardCallingsView: View {
     @State private var pickerSlot: CallingSlot?
     @State private var addingCalling = false
     @State private var showingSharing = false
+    @State private var showingImport = false
     @State private var path = NavigationPath()
 
     var body: some View {
@@ -39,12 +40,17 @@ struct WardCallingsView: View {
             .navigationTitle(store.data.wardName ?? "Ward Callings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItemGroup(placement: .topBarLeading) {
+                    Button {
+                        showingSharing = true
+                    } label: {
+                        Label("Sharing", systemImage: "person.2")
+                    }
                     Menu {
                         Button {
-                            showingSharing = true
+                            showingImport = true
                         } label: {
-                            Label("Sharing…", systemImage: "person.2")
+                            Label("Import…", systemImage: "square.and.arrow.down")
                         }
                     } label: {
                         Label("More", systemImage: "ellipsis.circle")
@@ -64,6 +70,9 @@ struct WardCallingsView: View {
             }
             .sheet(isPresented: $showingSharing) {
                 SharingView()
+            }
+            .sheet(isPresented: $showingImport) {
+                ImportView()
             }
             .navigationDestination(for: OrganizationKind.self) { org in
                 OrganizationView(organization: org)
