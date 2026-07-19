@@ -9,6 +9,25 @@ struct OpenCallingsView: View {
     @State private var pickerEntry: OpenCalling?
     @State private var editingDefinition: CallingDefinition?
     @State private var checklistCopied = false
+    // Column filters (nil = all)
+    @State private var filterOrganization: OrganizationKind?
+    @State private var filterReleaseStatus: ReleaseStatus?
+    @State private var filterCallStatus: CallStatus?
+    @State private var filterReleaseAssignee: BishopricMember?
+    @State private var filterCallAssignee: BishopricMember?
+
+    private var hasActiveFilters: Bool {
+        filterOrganization != nil || filterReleaseStatus != nil || filterCallStatus != nil
+            || filterReleaseAssignee != nil || filterCallAssignee != nil
+    }
+
+    private func clearFilters() {
+        filterOrganization = nil
+        filterReleaseStatus = nil
+        filterCallStatus = nil
+        filterReleaseAssignee = nil
+        filterCallAssignee = nil
+    }
 
     var body: some View {
         NavigationStack {
@@ -22,7 +41,10 @@ struct OpenCallingsView: View {
                         description: Text("Tap a calling on the Ward Callings page (or long-press it) to start a release/call.")
                     )
                 } else {
-                    table
+                    VStack(spacing: 0) {
+                        filterBar
+                        table
+                    }
                 }
             }
             .navigationTitle(showArchived ? "Archived Callings" : "Open Callings")
@@ -82,6 +104,14 @@ struct OpenCallingsView: View {
                 candidates: entry.candidateIDs.compactMap { store.member($0)?.displayName }.joined(separator: ", ")
             )
         }
+        .filter { row in
+            if let filterOrganization, row.organization != filterOrganization { return false }
+            if let filterReleaseStatus, row.entry.releaseStatus != filterReleaseStatus { return false }
+            if let filterCallStatus, row.entry.callStatus != filterCallStatus { return false }
+            if let filterReleaseAssignee, (row.entry.releaseAssignedTo ?? .unassigned) != filterReleaseAssignee { return false }
+            if let filterCallAssignee, row.entry.assignedTo != filterCallAssignee { return false }
+            return true
+        }
         .sorted {
             if $0.organization.displayOrder != $1.organization.displayOrder {
                 return $0.organization.displayOrder < $1.organization.displayOrder
@@ -90,6 +120,46 @@ struct OpenCallingsView: View {
                 return $0.displayOrder < $1.displayOrder
             }
             return $0.callingName < $1.callingName
+        }
+    }
+
+    /// Compact per-column filters above the table.
+    private var filterBar: some View {
+        HStack(spacing: 10) {
+            filterMenu("Group", selection: $filterOrganization, options: OrganizationKind.allCases) { $0.rawValue }
+            filterMenu("Release", selection: $filterReleaseStatus, options: ReleaseStatus.allCases) { $0.rawValue }
+            filterMenu("Call Status", selection: $filterCallStatus, options: CallStatus.allCases) { $0.rawValue }
+            filterMenu("Assigned (R)", selection: $filterReleaseAssignee, options: BishopricMember.allCases) { $0.rawValue }
+            filterMenu("Assigned (C)", selection: $filterCallAssignee, options: BishopricMember.allCases) { $0.rawValue }
+            if hasActiveFilters {
+                Button("Clear") { clearFilters() }
+                    .font(.callout)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+    }
+
+    private func filterMenu<T: Hashable>(
+        _ title: String,
+        selection: Binding<T?>,
+        options: [T],
+        label: @escaping (T) -> String
+    ) -> some View {
+        Menu {
+            Button("All") { selection.wrappedValue = nil }
+            ForEach(options, id: \.self) { option in
+                Button(label(option)) { selection.wrappedValue = option }
+            }
+        } label: {
+            HStack(spacing: 3) {
+                Text(selection.wrappedValue.map(label) ?? title)
+                Image(systemName: "chevron.down")
+                    .font(.caption2)
+            }
+            .font(.callout)
+            .foregroundStyle(selection.wrappedValue == nil ? Color.secondary : Color.accentColor)
         }
     }
 
@@ -138,7 +208,11 @@ struct OpenCallingsView: View {
             .width(min: 180, ideal: 280)
 
             TableColumn("Current (Release)") { row in
-                ReleaseStatusCell(currentName: row.currentMember, entry: row.entry) { row.entry }
+                ReleaseStatusCell(
+                    currentName: row.currentMember,
+                    memberID: store.slotsByID[row.entry.slotID]?.memberID,
+                    entry: row.entry
+                ) { row.entry }
             }
             .width(min: 150, ideal: 200)
 

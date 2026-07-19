@@ -9,6 +9,7 @@ struct CallingRowView: View {
     let slot: CallingSlot
     @Binding var editingDefinition: CallingDefinition?
     @Binding var pickerSlot: CallingSlot?
+    @Binding var detailMemberID: UUID?
 
     private var definition: CallingDefinition? { store.definition(for: slot) }
     private var holder: Member? { store.member(slot.memberID) }
@@ -36,12 +37,18 @@ struct CallingRowView: View {
             }
             .buttonStyle(.plain)
 
-            Text(holderLabel)
-                .font(.subheadline)
-                .foregroundStyle(holderStyle)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 3)
-                .background(highlightBackground, in: RoundedRectangle(cornerRadius: 4))
+            Button {
+                if let memberID = slot.memberID { detailMemberID = memberID }
+            } label: {
+                Text(holderLabel)
+                    .font(.subheadline)
+                    .foregroundStyle(holderStyle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 3)
+                    .background(highlightBackground, in: RoundedRectangle(cornerRadius: 4))
+            }
+            .buttonStyle(.plain)
+            .disabled(slot.memberID == nil)
         }
         .contextMenu {
             NavigationLink(value: slot) {

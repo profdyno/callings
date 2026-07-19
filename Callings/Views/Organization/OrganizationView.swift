@@ -71,7 +71,7 @@ struct OrganizationView: View {
             .width(min: 200, ideal: 300)
 
             TableColumn("Current (Release)") { row in
-                ReleaseStatusCell(currentName: row.currentName, entry: row.entry) {
+                ReleaseStatusCell(currentName: row.currentName, memberID: row.slot.memberID, entry: row.entry) {
                     store.openCallingEntry(for: row.slot)
                 }
             }

@@ -10,8 +10,10 @@ struct ReleaseStatusCell: View {
     @Environment(WardStore.self) private var store
     @Environment(SyncService.self) private var syncService
     let currentName: String
+    var memberID: UUID?
     let entry: OpenCalling?
     let ensureEntry: () -> OpenCalling
+    @State private var detailMemberID: UUID?
 
     var body: some View {
         Menu {
@@ -23,6 +25,14 @@ struct ReleaseStatusCell: View {
                 }
                 // Announced happens in sacrament meeting — owner only.
                 .disabled(!syncService.canSet(releaseStatus: status))
+            }
+            if let memberID {
+                Divider()
+                Button {
+                    detailMemberID = memberID
+                } label: {
+                    Label("Member Details…", systemImage: "person.crop.circle")
+                }
             }
         } label: {
             VStack(alignment: .leading, spacing: 0) {
@@ -36,6 +46,9 @@ struct ReleaseStatusCell: View {
             }
         }
         .buttonStyle(.plain)
+        .sheet(item: $detailMemberID) { memberID in
+            MemberDetailSheet(memberID: memberID)
+        }
     }
 }
 
@@ -46,9 +59,18 @@ struct ToBeCalledCell: View {
     @Environment(SyncService.self) private var syncService
     let entry: OpenCalling?
     let ensureEntry: () -> OpenCalling
+    @State private var detailMemberID: UUID?
 
     var body: some View {
         Menu {
+            if let selectedID = entry?.memberToBeCalledID {
+                Button {
+                    detailMemberID = selectedID
+                } label: {
+                    Label("Member Details…", systemImage: "person.crop.circle")
+                }
+                Divider()
+            }
             if let entry, !entry.candidateIDs.isEmpty {
                 Section("Member to call") {
                     Button("None") {
@@ -94,6 +116,9 @@ struct ToBeCalledCell: View {
             }
         }
         .buttonStyle(.plain)
+        .sheet(item: $detailMemberID) { memberID in
+            MemberDetailSheet(memberID: memberID)
+        }
     }
 }
 

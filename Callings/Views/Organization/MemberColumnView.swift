@@ -73,14 +73,25 @@ struct MemberColumnView: View {
     }
 }
 
-/// One draggable member row with calling/tenure context.
+/// One draggable member row with calling/tenure context. Tapping opens the
+/// member's detail sheet.
 struct MemberRowView: View {
     @Environment(WardStore.self) private var store
     let member: Member
     var showTenure = false
     var editableCategory = false
+    @State private var showingDetail = false
 
     var body: some View {
+        rowContent
+            .contentShape(Rectangle())
+            .onTapGesture { showingDetail = true }
+            .sheet(isPresented: $showingDetail) {
+                MemberDetailSheet(memberID: member.id)
+            }
+    }
+
+    private var rowContent: some View {
         VStack(alignment: .leading, spacing: 1) {
             HStack {
                 Text(member.name)

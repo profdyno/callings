@@ -36,6 +36,7 @@ struct OrganizationCardView: View {
     let group: HomeGroup
     @Binding var editingDefinition: CallingDefinition?
     @Binding var pickerSlot: CallingSlot?
+    @Binding var detailMemberID: UUID?
     var onDrill: (OrganizationKind) -> Void = { _ in }
 
     var slots: [CallingSlot] {
@@ -83,7 +84,12 @@ struct OrganizationCardView: View {
                         }
                     }
                     ForEach(section.slots) { slot in
-                        CallingRowView(slot: slot, editingDefinition: $editingDefinition, pickerSlot: $pickerSlot)
+                        CallingRowView(
+                            slot: slot,
+                            editingDefinition: $editingDefinition,
+                            pickerSlot: $pickerSlot,
+                            detailMemberID: $detailMemberID
+                        )
                     }
                 }
             }

@@ -15,15 +15,22 @@ struct CandidatePickerSheet: View {
     @State private var ignoreCriteria = false
     @State private var editingDefinition: CallingDefinition?
     @State private var createdEntryID: UUID?
+    @State private var detailMemberID: UUID?
 
     private var slot: CallingSlot? { store.slotsByID[slotID] }
     private var definition: CallingDefinition? { slot.flatMap { store.definition(for: $0) } }
     private var openEntry: OpenCalling? { store.openCalling(forSlot: slotID) }
 
+    private var currentCandidates: [Member] {
+        (openEntry?.candidateIDs ?? []).compactMap { store.member($0) }
+    }
+
     private var candidates: [Member] {
         var members = ignoreCriteria
             ? store.data.members.filter { $0.isActiveOnRoster && !$0.isPlaceholder }.sorted { $0.name < $1.name }
             : store.candidates(matching: definition?.criteria ?? CandidateCriteria())
+        let selected = Set(openEntry?.candidateIDs ?? [])
+        members = members.filter { !selected.contains($0.id) }
         if !searchText.isEmpty {
             members = members.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
         }
@@ -32,8 +39,19 @@ struct CandidatePickerSheet: View {
 
     var body: some View {
         NavigationStack {
-            List(candidates) { member in
-                candidateRow(member)
+            List {
+                if !currentCandidates.isEmpty {
+                    Section("Current Candidates") {
+                        ForEach(currentCandidates) { member in
+                            candidateRow(member)
+                        }
+                    }
+                }
+                Section(currentCandidates.isEmpty ? "" : "Add Candidates") {
+                    ForEach(candidates) { member in
+                        candidateRow(member)
+                    }
+                }
             }
             .searchable(text: $searchText, prompt: "Search members")
             .navigationTitle(definition.map { "Candidates — \($0.name)" } ?? "Select Candidates")
@@ -47,12 +65,27 @@ struct CandidatePickerSheet: View {
                         Label("Edit Criteria", systemImage: "slider.horizontal.3")
                     }
                 }
+                ToolbarItem(placement: .primaryAction) {
+                    // Start the calling change with no candidate chosen.
+                    if openEntry == nil {
+                        Button("Start as TBD") {
+                            if let slot {
+                                store.openCallingEntry(for: slot)
+                                createdEntryID = nil  // survives the empty-entry cleanup
+                            }
+                            dismiss()
+                        }
+                    }
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
             }
             .sheet(item: $editingDefinition) { definition in
                 CallingEditorSheet(definition: definition)
+            }
+            .sheet(item: $detailMemberID) { memberID in
+                MemberDetailSheet(memberID: memberID)
             }
         }
         .onDisappear {
@@ -84,6 +117,14 @@ struct CandidatePickerSheet: View {
                 }
             }
             Spacer()
+
+            Button {
+                detailMemberID = member.id
+            } label: {
+                Image(systemName: "info.circle")
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
 
             CategoryMenu(member: member)
         }

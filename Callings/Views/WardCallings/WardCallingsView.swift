@@ -9,6 +9,7 @@ struct WardCallingsView: View {
 
     @State private var editingDefinition: CallingDefinition?
     @State private var pickerSlot: CallingSlot?
+    @State private var detailMemberID: UUID?
     @State private var addingCalling = false
 
     private let columnSpacing: CGFloat = 12
@@ -71,6 +72,9 @@ struct WardCallingsView: View {
             .sheet(item: $pickerSlot) { slot in
                 CandidatePickerSheet(slotID: slot.id)
             }
+            .sheet(item: $detailMemberID) { memberID in
+                MemberDetailSheet(memberID: memberID)
+            }
         }
     }
 
@@ -99,6 +103,7 @@ struct WardCallingsView: View {
                         group: group,
                         editingDefinition: $editingDefinition,
                         pickerSlot: $pickerSlot,
+                        detailMemberID: $detailMemberID,
                         onDrill: onDrill
                     )
                 }
@@ -132,7 +137,8 @@ struct FilterBar: ToolbarContent {
                     }
                 }
             } label: {
-                Image(systemName: "slider.horizontal.3")
+                Text("\(store.tenureThresholdMonths) mo")
+                    .font(.callout.weight(.medium))
             }
         }
     }
