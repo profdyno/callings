@@ -52,7 +52,7 @@ struct OrganizationView: View {
                                 : (row.entry != nil ? Color.red : Color.primary)
                             )
                         if let subgroup = row.definition.subgroup {
-                            Text(subgroup)
+                            Text(CallingDefinition.subgroupDisplayName(subgroup, organization: row.definition.organization))
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }

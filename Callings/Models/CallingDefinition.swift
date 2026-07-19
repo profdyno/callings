@@ -57,14 +57,67 @@ struct CallingDefinition: Codable, Identifiable, Hashable {
         "\(organization.rawValue)|\(subgroup ?? "")|\(name)".lowercased()
     }
 
-    /// Calling name for display inside its own organization's group, with the
-    /// redundant organization prefix removed ("Elders Quorum President" shown
-    /// under Elders Quorum becomes "President").
+    /// Calling name for display inside its own organization's group, with
+    /// redundant context stripped so more fits on screen. Display-only —
+    /// matching and the Open Callings view use the full `name`.
+    ///
+    /// Pipeline (each step falls back to the previous result rather than
+    /// producing an empty string):
+    /// 1. Strip a "Ward <org>", "<org>", or subgroup-stem prefix
+    ///    ("Priests Quorum President" under its presidency → "President").
+    /// 2. Under the Activities/Service subgroups, drop the leading
+    ///    "Activity"/"Service" ("Activity Coordinator" → "Coordinator").
+    /// 3. Abbreviate "Assistant" → "Asst".
     var nameWithinOrganization: String {
-        let prefix = organization.rawValue
-        guard name.count > prefix.count,
-              name.lowercased().hasPrefix(prefix.lowercased()) else { return name }
-        let stripped = String(name.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
-        return stripped.isEmpty ? name : stripped
+        var result = name
+
+        // 1. Redundant prefixes, longest candidates first.
+        var prefixes = ["Ward \(organization.rawValue)", organization.rawValue]
+        if let subgroup {
+            var stem = subgroup
+            for suffix in [" Class Presidency", " Presidency", " Adult Leaders"] where stem.hasSuffix(suffix) {
+                // "Gatherers of Light Class Presidency" keeps "Class" in its stem.
+                stem = suffix == " Class Presidency"
+                    ? String(stem.dropLast(" Presidency".count))
+                    : String(stem.dropLast(suffix.count))
+            }
+            prefixes.append(stem)
+        }
+        for prefix in prefixes.sorted(by: { $0.count > $1.count }) {
+            if result.count > prefix.count, result.lowercased().hasPrefix(prefix.lowercased() + " ") {
+                result = String(result.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
+                break
+            }
+        }
+
+        // 2. Words redundant with the Activities/Service subgroup headers
+        // (may follow "Assistant": "Assistant Service Coordinator").
+        if let subgroup {
+            let redundant = ["Activities": "Activity", "Service": "Service"]
+            if let word = redundant[subgroup] {
+                let stripped = result
+                    .replacingOccurrences(of: #"\b\#(word)\b\s?"#, with: "", options: .regularExpression)
+                    .trimmingCharacters(in: .whitespaces)
+                if !stripped.isEmpty { result = stripped }
+            }
+        }
+
+        // 3. Abbreviations.
+        result = result.replacingOccurrences(
+            of: #"\bAssistant\b"#, with: "Asst", options: .regularExpression
+        )
+
+        return result.isEmpty ? name : result
+    }
+
+    /// Display name for a subgroup header within an organization
+    /// ("Activities" in Elders Quorum / Relief Society reads "Activities Committee").
+    static func subgroupDisplayName(_ subgroup: String, organization: OrganizationKind) -> String {
+        guard organization == .eldersQuorum || organization == .reliefSociety else { return subgroup }
+        switch subgroup {
+        case "Activities": return "Activities Committee"
+        case "Service": return "Service Committee"
+        default: return subgroup
+        }
     }
 }

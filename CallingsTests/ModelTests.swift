@@ -63,6 +63,79 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(bishop.nameWithinOrganization, "Bishopric")
     }
 
+    func testNameWithinOrganizationShortening() {
+        func make(_ name: String, _ org: OrganizationKind, _ subgroup: String? = nil) -> CallingDefinition {
+            var d = CallingDefinition(name: name, organization: org)
+            d.subgroup = subgroup
+            return d
+        }
+
+        // "Ward <org>" prefix
+        XCTAssertEqual(
+            make("Ward Temple and Family History Consultant", .templeAndFamilyHistory).nameWithinOrganization,
+            "Consultant"
+        )
+        XCTAssertEqual(
+            make("Ward Temple and Family History Leader", .templeAndFamilyHistory).nameWithinOrganization,
+            "Leader"
+        )
+
+        // Subgroup-stem prefixes
+        XCTAssertEqual(
+            make("Priests Quorum President", .aaronicPriesthoodQuorums, "Priests Quorum Presidency").nameWithinOrganization,
+            "President"
+        )
+        XCTAssertEqual(
+            make("Deacons Quorum Adviser", .aaronicPriesthoodQuorums, "Deacons Quorum Adult Leaders").nameWithinOrganization,
+            "Adviser"
+        )
+        XCTAssertEqual(
+            make("Gatherers of Light Class President", .youngWomen, "Gatherers of Light Class Presidency").nameWithinOrganization,
+            "President"
+        )
+
+        // Activity/Service word redundant with the subgroup
+        XCTAssertEqual(
+            make("Elders Quorum Activity Coordinator", .eldersQuorum, "Activities").nameWithinOrganization,
+            "Coordinator"
+        )
+        XCTAssertEqual(
+            make("Relief Society Assistant Service Coordinator", .reliefSociety, "Service").nameWithinOrganization,
+            "Asst Coordinator"
+        )
+        XCTAssertEqual(
+            make("Relief Society Activity Committee Member", .reliefSociety, "Activities").nameWithinOrganization,
+            "Committee Member"
+        )
+        XCTAssertEqual(
+            make("Elders Quorum Service Committee Member", .eldersQuorum, "Service").nameWithinOrganization,
+            "Committee Member"
+        )
+
+        // Assistant → Asst
+        XCTAssertEqual(
+            make("Elders Quorum Assistant Secretary", .eldersQuorum, "Elders Quorum Presidency").nameWithinOrganization,
+            "Asst Secretary"
+        )
+        XCTAssertEqual(
+            make("Ward Assistant Clerk--Membership", .bishopric).nameWithinOrganization,
+            "Ward Asst Clerk--Membership"
+        )
+
+        // Empty-result guard: "Relief Society Teacher" under "Teachers"
+        XCTAssertEqual(
+            make("Relief Society Teacher", .reliefSociety, "Teachers").nameWithinOrganization,
+            "Teacher"
+        )
+    }
+
+    func testSubgroupDisplayNameCommitteeRenames() {
+        XCTAssertEqual(CallingDefinition.subgroupDisplayName("Activities", organization: .eldersQuorum), "Activities Committee")
+        XCTAssertEqual(CallingDefinition.subgroupDisplayName("Service", organization: .reliefSociety), "Service Committee")
+        XCTAssertEqual(CallingDefinition.subgroupDisplayName("Activities", organization: .primary), "Activities")
+        XCTAssertEqual(CallingDefinition.subgroupDisplayName("Teachers", organization: .reliefSociety), "Teachers")
+    }
+
     func testMemberNameParsing() {
         let member = Member(name: "Alley, Raelyn Kay")
         XCTAssertEqual(member.lastName, "Alley")

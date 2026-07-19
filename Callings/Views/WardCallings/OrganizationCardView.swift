@@ -7,10 +7,13 @@ struct OrganizationCardView: View {
     let organization: OrganizationKind
     @Binding var editingDefinition: CallingDefinition?
     @Binding var pickerSlot: CallingSlot?
+    var onDrill: (OrganizationKind) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            NavigationLink(value: organization) {
+            Button {
+                onDrill(organization)
+            } label: {
                 HStack {
                     Text(organization.rawValue)
                         .font(.headline)
@@ -28,7 +31,7 @@ struct OrganizationCardView: View {
                 ForEach(grouped, id: \.subgroup) { group in
                     if let subgroup = group.subgroup {
                         GridRow {
-                            Text(subgroup)
+                            Text(CallingDefinition.subgroupDisplayName(subgroup, organization: organization))
                                 .font(.caption.smallCaps())
                                 .foregroundStyle(.secondary)
                                 .gridCellColumns(2)

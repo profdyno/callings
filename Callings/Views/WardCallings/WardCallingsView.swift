@@ -1,43 +1,52 @@
 import SwiftUI
 
-/// Home page: all organizations with their callings and holders, in a
-/// masonry grid that scales from iPad portrait to a 16:9 TV.
+/// Home page: a horizontally scrolling board of organization columns
+/// (snapping into place), each column scrolling vertically on its own.
 struct WardCallingsView: View {
     @Environment(WardStore.self) private var store
+    /// Tapping an org header drills into the Organizations tab.
+    var onDrill: (OrganizationKind) -> Void = { _ in }
+
     @State private var editingDefinition: CallingDefinition?
     @State private var pickerSlot: CallingSlot?
     @State private var addingCalling = false
     @State private var showingSharing = false
     @State private var showingImport = false
-    @State private var path = NavigationPath()
+    @AppStorage("appearanceDark") private var appearanceDark = false
+
+    /// User-specified column arrangement, left to right.
+    private static let homeColumns: [[OrganizationKind]] = [
+        [.eldersQuorum],
+        [.reliefSociety],
+        [.wardMissionaries, .templeAndFamilyHistory],
+        [.aaronicPriesthoodQuorums],
+        [.youngWomen],
+        [.primary],
+        [.sundaySchool],
+        [.youngSingleAdult, .otherCallings],
+        [.bishopric],
+    ]
+
+    private var visibleColumns: [[OrganizationKind]] {
+        Self.homeColumns
+            .map { $0.filter { !store.slots(in: $0).isEmpty } }
+            .filter { !$0.isEmpty }
+    }
 
     var body: some View {
-        NavigationStack(path: $path) {
+        NavigationStack {
             Group {
                 if store.data.callingSlots.isEmpty {
                     ContentUnavailableView(
                         "No Ward Data",
                         systemImage: "person.3",
-                        description: Text("Import the Ward Callings and Member List PDFs from the Import tab.")
+                        description: Text("Import the Ward Callings and Member List PDFs from the ••• menu.")
                     )
                 } else {
-                    ScrollView {
-                        MasonryLayout(columnWidth: 340, spacing: 12) {
-                            ForEach(OrganizationKind.allCases) { org in
-                                if !store.slots(in: org).isEmpty {
-                                    OrganizationCardView(
-                                        organization: org,
-                                        editingDefinition: $editingDefinition,
-                                        pickerSlot: $pickerSlot
-                                    )
-                                }
-                            }
-                        }
-                        .padding(12)
-                    }
+                    board
                 }
             }
-            .navigationTitle(store.data.wardName ?? "Ward Callings")
+            .navigationTitle(store.data.wardName ?? "Ward")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItemGroup(placement: .topBarLeading) {
@@ -52,6 +61,9 @@ struct WardCallingsView: View {
                         } label: {
                             Label("Import…", systemImage: "square.and.arrow.down")
                         }
+                        Toggle(isOn: $appearanceDark) {
+                            Label("Dark Background", systemImage: appearanceDark ? "moon.fill" : "moon")
+                        }
                     } label: {
                         Label("More", systemImage: "ellipsis.circle")
                     }
@@ -65,6 +77,9 @@ struct WardCallingsView: View {
                 }
                 FilterBar()
             }
+            .navigationDestination(for: CallingSlot.self) { slot in
+                CallingDetailView(slotID: slot.id)
+            }
             .sheet(isPresented: $addingCalling) {
                 AddCallingSheet()
             }
@@ -74,27 +89,42 @@ struct WardCallingsView: View {
             .sheet(isPresented: $showingImport) {
                 ImportView()
             }
-            .navigationDestination(for: OrganizationKind.self) { org in
-                OrganizationView(organization: org)
-            }
-            .navigationDestination(for: CallingSlot.self) { slot in
-                CallingDetailView(slotID: slot.id)
-            }
             .sheet(item: $editingDefinition) { definition in
                 CallingEditorSheet(definition: definition)
             }
             .sheet(item: $pickerSlot) { slot in
                 CandidatePickerSheet(slotID: slot.id)
             }
-            .onAppear {
-                // Launch-argument hook for automated screenshots and UI tests.
-                let arguments = ProcessInfo.processInfo.arguments
-                if let index = arguments.firstIndex(of: "-drill"), index + 1 < arguments.count,
-                   let org = OrganizationKind.match(headerText: arguments[index + 1]) {
-                    path.append(org)
+        }
+    }
+
+    private var board: some View {
+        ScrollView(.horizontal) {
+            LazyHStack(alignment: .top, spacing: 12) {
+                ForEach(Array(visibleColumns.enumerated()), id: \.offset) { _, organizations in
+                    boardColumn(organizations)
+                }
+            }
+            .scrollTargetLayout()
+            .padding(12)
+        }
+        .scrollTargetBehavior(.viewAligned)
+    }
+
+    private func boardColumn(_ organizations: [OrganizationKind]) -> some View {
+        ScrollView(.vertical) {
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(organizations) { org in
+                    OrganizationCardView(
+                        organization: org,
+                        editingDefinition: $editingDefinition,
+                        pickerSlot: $pickerSlot,
+                        onDrill: onDrill
+                    )
                 }
             }
         }
+        .frame(width: 460)
     }
 }
 
@@ -126,8 +156,4 @@ struct FilterBar: ToolbarContent {
             }
         }
     }
-}
-
-#Preview {
-    WardCallingsView().environment(WardStore())
 }
