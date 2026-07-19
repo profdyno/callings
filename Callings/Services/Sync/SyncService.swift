@@ -360,14 +360,14 @@ extension SyncService: CKSyncEngineDelegate {
             }
 
         case .fetchedRecordZoneChanges(let changes):
-            SyncLog.shared.log("fetched: mods=\(changes.modifications.map(\\.record.recordID.recordName).joined(separator: ",")) dels=\(changes.deletions.count)")
+            SyncLog.shared.log("fetched: mods=\(changes.modifications.map(\.record.recordID.recordName).joined(separator: ",")) dels=\(changes.deletions.count)")
             apply(
                 modifications: changes.modifications.map(\.record),
                 deletions: changes.deletions.map(\.recordID)
             )
 
         case .sentRecordZoneChanges(let sent):
-            SyncLog.shared.log("sent: ok=\(sent.savedRecords.map(\\.recordID.recordName).joined(separator: ",")) failed=\(sent.failedRecordSaves.count) deleted=\(sent.deletedRecordIDs.count)")
+            SyncLog.shared.log("sent: ok=\(sent.savedRecords.map(\.recordID.recordName).joined(separator: ",")) failed=\(sent.failedRecordSaves.count) deleted=\(sent.deletedRecordIDs.count)")
             for save in sent.savedRecords {
                 stateStore.archiveSystemFields(of: save)
             }
