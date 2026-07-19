@@ -102,6 +102,53 @@ final class SyncServiceTests: XCTestCase {
         XCTAssertTrue(SnapshotDiffer.diff(baseline: service.stateStore.baseline!, current: store.data).isEmpty)
     }
 
+    /// Loopback: device A updates an EXISTING entry's assignment/status via
+    /// the same store call the table menus use; the diffed record is applied
+    /// to device B. Covers the full local pipeline (store → diff → mapper →
+    /// apply) for updates, not just creations.
+    func testAssignmentUpdateRoundTripsBetweenDevices() {
+        let (serviceA, storeA) = makeService(role: .owner)
+        let (serviceB, storeB) = makeService(role: .participant)
+
+        // Both devices already have the synced entry.
+        let definition = CallingDefinition(name: "Ward Clerk", organization: .bishopric)
+        let slot = CallingSlot(definitionID: definition.id)
+        var entry = OpenCalling(slotID: slot.id)
+        var data = WardData()
+        data.callingDefinitions = [definition]
+        data.callingSlots = [slot]
+        data.openCallings = [entry]
+        storeA.apply(data)
+        storeB.apply(data)
+        serviceA.stateStore.baseline = storeA.data
+        serviceB.stateStore.baseline = storeB.data
+
+        // A assigns a bishopric member, selects the member to call, sets status —
+        // exactly what the table menu cells do.
+        entry.assignedTo = .firstCounselor
+        entry.releaseAssignedTo = .bishop
+        entry.callStatus = .accepted
+        storeA.updateOpenCalling(entry)
+
+        // The diff must catch it...
+        let changes = SnapshotDiffer.diff(baseline: serviceA.stateStore.baseline!, current: storeA.data)
+        XCTAssertEqual(changes.savedRecordNames, [CKRecordMapper.recordName(forOpenCalling: entry.id)])
+
+        // ...the mapper builds the wire record from A's store...
+        let zoneID = CKRecordZone.ID(zoneName: "WardZone", ownerName: CKCurrentUserDefaultName)
+        let record = CKRecord(
+            recordType: "OpenCalling",
+            recordID: CKRecord.ID(recordName: changes.savedRecordNames[0], zoneID: zoneID)
+        )
+        CKRecordMapper.populate(record, from: storeA.data.openCallings[0])
+
+        // ...and B applies it.
+        serviceB.apply(modifications: [record], deletions: [])
+        XCTAssertEqual(storeB.data.openCallings[0].assignedTo, .firstCounselor)
+        XCTAssertEqual(storeB.data.openCallings[0].releaseAssignedTo, .bishop)
+        XCTAssertEqual(storeB.data.openCallings[0].callStatus, .accepted)
+    }
+
     func testPrepareForResyncWipesDataButKeepsRole() {
         let (service, store) = makeService(role: .participant)
         service.stateStore.settings.zoneOwnerName = "_owner"

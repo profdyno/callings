@@ -45,6 +45,16 @@ struct SharingView: View {
                     }
                 }
 
+                if syncService.role != .solo {
+                    Section {
+                        NavigationLink {
+                            SyncLogView()
+                        } label: {
+                            Label("Sync Log", systemImage: "doc.text.magnifyingglass")
+                        }
+                    }
+                }
+
                 if let errorMessage {
                     Section { Text(errorMessage).foregroundStyle(.red) }
                 }
@@ -210,6 +220,46 @@ struct SharingView: View {
         Task {
             _ = try? await shareCoordinator.ensureShare(wardName: store.data.wardName)
             presentingShareSheet = true
+        }
+    }
+}
+
+/// Diagnostic view of sync activity, copyable for troubleshooting.
+struct SyncLogView: View {
+    private let log = SyncLog.shared
+    @State private var copied = false
+
+    var body: some View {
+        List(log.entries.reversed()) { entry in
+            VStack(alignment: .leading, spacing: 1) {
+                Text(entry.date.formatted(date: .omitted, time: .standard))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Text(entry.message)
+                    .font(.caption.monospaced())
+            }
+        }
+        .navigationTitle("Sync Log")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            Button {
+                UIPasteboard.general.string = SyncLog.shared.fullText
+                copied = true
+            } label: {
+                Label("Copy All", systemImage: "doc.on.doc")
+            }
+        }
+        .alert("Log Copied", isPresented: $copied) {
+            Button("OK") {}
+        }
+        .overlay {
+            if log.entries.isEmpty {
+                ContentUnavailableView(
+                    "No Sync Activity Yet",
+                    systemImage: "doc.text.magnifyingglass",
+                    description: Text("Make a change on this iPad or another one, then check back.")
+                )
+            }
         }
     }
 }

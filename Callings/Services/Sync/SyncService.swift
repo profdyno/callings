@@ -180,6 +180,7 @@ final class SyncService {
             stateStore.removeSystemFields(recordName: name)
         }
         engine.state.add(pendingRecordZoneChanges: pending)
+        SyncLog.shared.log("enqueue: save=\(changes.savedRecordNames.joined(separator: ",")) delete=\(changes.deletedRecordNames.joined(separator: ","))")
         stateStore.baseline = current
         pendingChangeCount = engine.state.pendingRecordZoneChanges.count
     }
@@ -359,16 +360,19 @@ extension SyncService: CKSyncEngineDelegate {
             }
 
         case .fetchedRecordZoneChanges(let changes):
+            SyncLog.shared.log("fetched: mods=\(changes.modifications.map(\\.record.recordID.recordName).joined(separator: ",")) dels=\(changes.deletions.count)")
             apply(
                 modifications: changes.modifications.map(\.record),
                 deletions: changes.deletions.map(\.recordID)
             )
 
         case .sentRecordZoneChanges(let sent):
+            SyncLog.shared.log("sent: ok=\(sent.savedRecords.map(\\.recordID.recordName).joined(separator: ",")) failed=\(sent.failedRecordSaves.count) deleted=\(sent.deletedRecordIDs.count)")
             for save in sent.savedRecords {
                 stateStore.archiveSystemFields(of: save)
             }
             for failure in sent.failedRecordSaves {
+                SyncLog.shared.log("sendFail: \(failure.record.recordID.recordName) code=\(failure.error.code.rawValue) \(failure.error.localizedDescription)")
                 handleSaveFailure(failure, syncEngine: syncEngine)
             }
             pendingChangeCount = syncEngine.state.pendingRecordZoneChanges.count
@@ -392,6 +396,7 @@ extension SyncService: CKSyncEngineDelegate {
             guard let server = failure.error.serverRecord else { return }
             let ancestor = failure.error.ancestorRecord
             let merged = ConflictResolver.merge(client: record, server: server, ancestor: ancestor)
+            SyncLog.shared.log("conflict-merged: \(record.recordID.recordName) ancestor=\(ancestor != nil)")
             stateStore.archiveSystemFields(of: merged)
             // Apply the merged truth locally, then re-save it.
             apply(modifications: [merged], deletions: [])
@@ -416,11 +421,13 @@ extension SyncService: CKSyncEngineDelegate {
     ) async -> CKSyncEngine.RecordZoneChangeBatch? {
         let scope = context.options.scope
         let pending = syncEngine.state.pendingRecordZoneChanges.filter { scope.contains($0) }
+        SyncLog.shared.post("batch: pending=\(pending.count)")
         return await CKSyncEngine.RecordZoneChangeBatch(pendingChanges: pending) { recordID in
             if let record = await self.record(for: recordID) {
                 return record
             }
             // Model no longer exists locally — drop the stale pending save.
+            SyncLog.shared.post("provider-miss: \(recordID.recordName)")
             syncEngine.state.remove(pendingRecordZoneChanges: [.saveRecord(recordID)])
             return nil
         }
