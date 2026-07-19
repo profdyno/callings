@@ -9,6 +9,7 @@ struct ImportView: View {
     @Environment(SyncService.self) private var syncService
     @Environment(\.dismiss) private var dismiss
     @State private var showingFilePicker = false
+    @State private var showingWebImport = false
     @State private var pendingImport: PendingImport?
     @State private var errorMessage: String?
 
@@ -29,6 +30,16 @@ struct ImportView: View {
                 }
 
                 if syncService.canImport {
+                    Section {
+                        Button {
+                            showingWebImport = true
+                        } label: {
+                            Label("Fetch from LCR…", systemImage: "globe")
+                        }
+                    } footer: {
+                        Text("Sign in with your Church account and pull the member list straight from the report — no PDF needed.")
+                    }
+
                     Section {
                         Button {
                             showingFilePicker = true
@@ -98,6 +109,9 @@ struct ImportView: View {
             }
             .sheet(item: $pendingImport) { pending in
                 ImportPreviewView(pending: pending)
+            }
+            .sheet(isPresented: $showingWebImport) {
+                LCRWebImportView()
             }
         }
     }
