@@ -85,3 +85,7 @@ Lessons learned building this app — review before touching the parsers or CI.
   Console (Development → Schema → Record Types) and redeploy. Prevention:
   exercise every optional field before a schema deploy, or maintain the
   schema deliberately in the Console.
+- **`latest_testflight_build_number` is blind to builds still in Apple's
+  processing queue** — while one build is "Processing", the next CI run
+  reuses its number and the upload is rejected (-19232). Fixed by taking
+  `max(latest+1, GITHUB_RUN_NUMBER)`.
