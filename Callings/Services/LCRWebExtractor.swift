@@ -111,20 +111,93 @@ enum LCRWebExtractor {
     })()
     """
 
-    /// JavaScript for the diagnostic snapshot: page title, URL, and a
-    /// structural outline so the extractor can be adapted without PII-heavy
-    /// full-page dumps.
+    /// Best-effort parse of a callings table scraped from an LCR page laid
+    /// out like the PDF report (org header rows spanning one cell; data rows
+    /// of calling | member | sustained). Throws when the structure doesn't
+    /// match — the page snapshot then tells us what to adapt to.
+    static func parseCallings(from table: ScrapedTable) throws -> ParsedWardCallings {
+        if let error = table.error {
+            throw ExtractionError.noTable(pageTitle: table.title ?? error)
+        }
+        var result = ParsedWardCallings()
+        var currentOrg: OrganizationKind?
+        var currentSubgroup: String?
+
+        for row in table.rows {
+            let cells = row.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+            guard !cells.isEmpty else { continue }
+
+            if cells.count == 1 {
+                // Exact name = organization header; anything else under an
+                // org is a subgroup ("Elders Quorum Presidency" must not
+                // fuzzy-match the Elders Quorum org).
+                if let org = OrganizationKind(rawValue: cells[0]) {
+                    currentOrg = org
+                    currentSubgroup = nil
+                } else if currentOrg != nil, !cells[0].lowercased().contains("calling") {
+                    currentSubgroup = cells[0]
+                }
+                continue
+            }
+            guard let org = currentOrg, cells.count >= 2 else { continue }
+            if cells[0].localizedCaseInsensitiveContains("calling") && cells[1].localizedCaseInsensitiveContains("name") {
+                continue  // column header row
+            }
+            var callingName = cells[0]
+            var isCustom = false
+            if callingName.hasPrefix("*") {
+                isCustom = true
+                callingName = callingName.dropFirst().trimmingCharacters(in: .whitespaces)
+            }
+            let holder = cells[1].replacingOccurrences(of: " ", with: "") == "CallingVacant" ? nil : cells[1]
+            result.rows.append(ParsedCallingRow(
+                organization: org,
+                subgroup: currentSubgroup,
+                callingName: callingName,
+                isCustom: isCustom,
+                holderName: holder,
+                sustainedDate: cells.count > 2 ? PDFTableExtractor.parseLCRDate(cells[2]) : nil,
+                isSetApart: cells.contains { $0 == "✓" || $0.lowercased() == "yes" }
+            ))
+        }
+        guard !result.rows.isEmpty else {
+            throw ExtractionError.noTable(pageTitle: table.title)
+        }
+        return result
+    }
+
+    /// JavaScript for the diagnostic snapshot: page title, URL, table shapes,
+    /// and the page's repeated element structures (class names + one sample
+    /// text, truncated) so the extractor can be adapted from a single
+    /// copy-paste without a PII-heavy full dump.
     static let snapshotScript = """
     (() => {
         const tables = Array.from(document.querySelectorAll('table')).map(t => ({
             rows: t.querySelectorAll('tr').length,
             firstRow: Array.from((t.querySelector('tr') || {querySelectorAll: () => []}).querySelectorAll('th,td')).map(c => (c.innerText || '').trim())
         }));
+        // Find repeated structures: class names that occur many times.
+        const counts = {};
+        document.querySelectorAll('[class]').forEach(el => {
+            const key = el.tagName.toLowerCase() + '.' + el.className.toString().split(/\\s+/).slice(0, 2).join('.');
+            counts[key] = (counts[key] || 0) + 1;
+        });
+        const repeated = Object.entries(counts)
+            .filter(([, n]) => n >= 8)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 20)
+            .map(([key, n]) => {
+                const el = document.querySelector(key.replace(/^([a-z0-9]+)\\./, '$1.').split('.').slice(0, 2).join('.'));
+                let sample = '';
+                try { sample = (document.getElementsByClassName(key.split('.')[1])[0]?.innerText || '').slice(0, 90); } catch (e) {}
+                return {selector: key, count: n, sample: sample};
+            });
         return JSON.stringify({
             title: document.title,
             url: location.href,
             tableCount: tables.length,
-            tables: tables.slice(0, 5)
+            tables: tables.slice(0, 5),
+            repeatedStructures: repeated
         }, null, 2);
     })()
     """

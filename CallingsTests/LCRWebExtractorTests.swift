@@ -59,6 +59,30 @@ final class LCRWebExtractorTests: XCTestCase {
         XCTAssertThrowsError(try LCRWebExtractor.parseMembers(from: scraped))
     }
 
+    func testParsesCallingsFromPDFShapedTable() throws {
+        let scraped = table([
+            ["Elders Quorum"],
+            ["Elders Quorum Presidency"],
+            ["Calling", "Name", "Sustained", "Set Apart"],
+            ["Elders Quorum President", "Valiulis, John Peter", "17 Dec 2023", "✓"],
+            ["Elders Quorum Secretary", "Calling Vacant"],
+            ["* Organist", "Boss, Linda", "4 Jan 2026"],
+        ])
+        let parsed = try LCRWebExtractor.parseCallings(from: scraped)
+        XCTAssertEqual(parsed.rows.count, 3)
+        XCTAssertEqual(parsed.rows[0].organization, .eldersQuorum)
+        XCTAssertEqual(parsed.rows[0].subgroup, "Elders Quorum Presidency")
+        XCTAssertEqual(parsed.rows[0].holderName, "Valiulis, John Peter")
+        XCTAssertTrue(parsed.rows[0].isSetApart)
+        XCTAssertNil(parsed.rows[1].holderName, "vacant")
+        XCTAssertTrue(parsed.rows[2].isCustom)
+    }
+
+    func testCallingsWithNoRecognizableRowsThrows() {
+        let scraped = table([["Something unrelated", "entirely"]])
+        XCTAssertThrowsError(try LCRWebExtractor.parseCallings(from: scraped))
+    }
+
     func testScrapeDecoding() throws {
         let json = #"{"rows": [["Preferred Name", "Gender"], ["Smith, Jane", "F"]]}"#
         let scraped = try LCRWebExtractor.decodeScrape(json)
