@@ -287,8 +287,12 @@ platform :ios do
       UI.important("Could not fetch build number (app may not exist in App Store Connect yet): #{e.message.split("\n").first}")
       current_build = 0
     end
-    new_build = current_build + 1
-    UI.message("Build number: #{new_build}")
+    # latest_testflight_build_number can't see builds still in Apple's
+    # processing queue, which caused duplicate-number rejections. The GitHub
+    # run number always increases, so take whichever is higher.
+    run_number = (ENV["GITHUB_RUN_NUMBER"] || "0").to_i
+    new_build = [current_build + 1, run_number].max
+    UI.message("Build number: #{new_build} (latest+1=#{current_build + 1}, run=#{run_number})")
 
     # Ensure App ID capabilities are up to date
     identifiers
