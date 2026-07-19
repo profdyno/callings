@@ -53,6 +53,12 @@ struct Member: Codable, Identifiable, Hashable {
     var email: String?
     var phone: String?
     var priesthood: PriesthoodTrack = .none
+    /// Aaronic/Melchizedek office from the roster ("Deacon"…"High Priest").
+    /// Optional String — new report column; older saved data lacks it.
+    var priesthoodOffice: String?
+    var moveInDate: Date?
+    /// "Active", "Canceled", "Expired", "Expires next month", …
+    var templeRecommendStatus: String?
     var classAssignments: [String] = []
     var category: MemberCategory = .none
     /// False when the member disappeared from a roster re-import (moved/records out).

@@ -122,8 +122,9 @@ struct ImportView: View {
             errorMessage = "Could not open \(url.lastPathComponent) as a PDF."
             return
         }
-        guard let pageText = document.page(at: 0)?.string else {
-            errorMessage = "\(url.lastPathComponent) contains no readable text."
+        let pageText = document.page(at: 0)?.string ?? ""
+        guard !pageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            errorMessage = "\(url.lastPathComponent) has no readable text — its fonts are damaged. Re-export it from lcr.churchofjesuschrist.org using the report's own Save/Print button (not the browser's print dialog)."
             return
         }
 

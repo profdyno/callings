@@ -88,6 +88,9 @@ enum ImportReconciler {
                 member.email = parsedMember.email ?? member.email
                 member.phone = parsedMember.phone ?? member.phone
                 member.priesthood = parsedMember.priesthood
+                member.priesthoodOffice = parsedMember.priesthoodOffice ?? member.priesthoodOffice
+                member.moveInDate = parsedMember.moveInDate ?? member.moveInDate
+                member.templeRecommendStatus = parsedMember.templeRecommendStatus ?? member.templeRecommendStatus
                 member.classAssignments = parsedMember.classAssignments
                 member.isActiveOnRoster = true
                 member.isPlaceholder = false
@@ -101,6 +104,9 @@ enum ImportReconciler {
                 member.email = parsedMember.email
                 member.phone = parsedMember.phone
                 member.priesthood = parsedMember.priesthood
+                member.priesthoodOffice = parsedMember.priesthoodOffice
+                member.moveInDate = parsedMember.moveInDate
+                member.templeRecommendStatus = parsedMember.templeRecommendStatus
                 member.classAssignments = parsedMember.classAssignments
                 data.members.append(member)
                 seenIDs.insert(member.id)

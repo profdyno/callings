@@ -44,6 +44,9 @@ enum CKRecordMapper {
         record["email"] = member.email
         record["phone"] = member.phone
         record["priesthood"] = member.priesthood.rawValue
+        record["priesthoodOffice"] = member.priesthoodOffice
+        record["moveInDate"] = member.moveInDate
+        record["templeRecommendStatus"] = member.templeRecommendStatus
         record["classAssignments"] = member.classAssignments
         record["categoryKind"] = categoryKind(member.category)
         record["categoryText"] = categoryText(member.category)
@@ -62,6 +65,9 @@ enum CKRecordMapper {
         member.email = record["email"] as? String
         member.phone = record["phone"] as? String
         member.priesthood = (record["priesthood"] as? String).flatMap(PriesthoodTrack.init(rawValue:)) ?? .none
+        member.priesthoodOffice = record["priesthoodOffice"] as? String
+        member.moveInDate = record["moveInDate"] as? Date
+        member.templeRecommendStatus = record["templeRecommendStatus"] as? String
         member.classAssignments = record["classAssignments"] as? [String] ?? []
         member.category = category(kind: record["categoryKind"] as? String, text: record["categoryText"] as? String)
         member.isActiveOnRoster = (record["isActiveOnRoster"] as? Int ?? 1) == 1

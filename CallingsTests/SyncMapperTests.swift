@@ -17,6 +17,9 @@ final class SyncMapperTests: XCTestCase {
         member.email = "r@example.com"
         member.phone = "(480) 555-1234"
         member.priesthood = .none
+        member.priesthoodOffice = "High Priest"
+        member.moveInDate = Date(timeIntervalSince1970: 1_600_000_000)
+        member.templeRecommendStatus = "Expiring next month"
         member.classAssignments = ["Relief Society", "Adult Sunday School"]
         member.category = .other("Serving mission soon")
         member.isActiveOnRoster = false
