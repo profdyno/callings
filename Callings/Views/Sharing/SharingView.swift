@@ -135,6 +135,11 @@ struct SharingView: View {
             } label: {
                 Label("Invite & Manage People…", systemImage: "person.2")
             }
+            NavigationLink {
+                InviteGuideView()
+            } label: {
+                Label("Adding a Bishopric Member…", systemImage: "questionmark.circle")
+            }
             Button {
                 Task { await syncService.fetchNow() }
             } label: {
