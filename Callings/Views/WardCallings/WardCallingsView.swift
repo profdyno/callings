@@ -1,35 +1,35 @@
 import SwiftUI
 
-/// Home page: a horizontally scrolling board of organization columns
-/// (snapping into place), each column scrolling vertically on its own.
+/// Home page: a horizontally scrolling board of group columns (snapping
+/// into place), each column scrolling vertically on its own.
 struct WardCallingsView: View {
     @Environment(WardStore.self) private var store
-    /// Tapping an org header drills into the Organizations tab.
+    /// Tapping a group header drills into the Organizations tab.
     var onDrill: (OrganizationKind) -> Void = { _ in }
 
     @State private var editingDefinition: CallingDefinition?
     @State private var pickerSlot: CallingSlot?
     @State private var addingCalling = false
-    @State private var showingSharing = false
-    @State private var showingImport = false
-    @AppStorage("appearanceDark") private var appearanceDark = false
+
+    private let columnSpacing: CGFloat = 12
 
     /// User-specified column arrangement, left to right.
-    private static let homeColumns: [[OrganizationKind]] = [
-        [.eldersQuorum],
-        [.reliefSociety],
-        [.wardMissionaries, .templeAndFamilyHistory],
-        [.aaronicPriesthoodQuorums],
-        [.youngWomen],
-        [.primary],
-        [.sundaySchool],
-        [.youngSingleAdult, .otherCallings],
-        [.bishopric],
+    private static let homeColumns: [[HomeGroup]] = [
+        [.org(.eldersQuorum)],
+        [.org(.reliefSociety)],
+        [.org(.wardMissionaries), .org(.templeAndFamilyHistory)],
+        [.org(.aaronicPriesthoodQuorums)],
+        [.org(.youngWomen)],
+        [.org(.primary)],
+        [.org(.sundaySchool)],
+        [.activitiesCommittee, .org(.youngSingleAdult)],
+        [.org(.otherCallings)],
+        [.org(.bishopric)],
     ]
 
-    private var visibleColumns: [[OrganizationKind]] {
+    private var visibleColumns: [[HomeGroup]] {
         Self.homeColumns
-            .map { $0.filter { !store.slots(in: $0).isEmpty } }
+            .map { $0.filter { !store.slots(in: $0.organization).isEmpty } }
             .filter { !$0.isEmpty }
     }
 
@@ -48,26 +48,8 @@ struct WardCallingsView: View {
             }
             .navigationTitle(store.data.wardName ?? "Ward")
             .navigationBarTitleDisplayMode(.inline)
+            .appToolbar()
             .toolbar {
-                ToolbarItemGroup(placement: .topBarLeading) {
-                    Button {
-                        showingSharing = true
-                    } label: {
-                        Label("Sharing", systemImage: "person.2")
-                    }
-                    Menu {
-                        Button {
-                            showingImport = true
-                        } label: {
-                            Label("Import…", systemImage: "square.and.arrow.down")
-                        }
-                        Toggle(isOn: $appearanceDark) {
-                            Label("Dark Background", systemImage: appearanceDark ? "moon.fill" : "moon")
-                        }
-                    } label: {
-                        Label("More", systemImage: "ellipsis.circle")
-                    }
-                }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         addingCalling = true
@@ -83,12 +65,6 @@ struct WardCallingsView: View {
             .sheet(isPresented: $addingCalling) {
                 AddCallingSheet()
             }
-            .sheet(isPresented: $showingSharing) {
-                SharingView()
-            }
-            .sheet(isPresented: $showingImport) {
-                ImportView()
-            }
             .sheet(item: $editingDefinition) { definition in
                 CallingEditorSheet(definition: definition)
             }
@@ -99,24 +75,28 @@ struct WardCallingsView: View {
     }
 
     private var board: some View {
-        ScrollView(.horizontal) {
-            LazyHStack(alignment: .top, spacing: 12) {
-                ForEach(Array(visibleColumns.enumerated()), id: \.offset) { _, organizations in
-                    boardColumn(organizations)
+        GeometryReader { geometry in
+            // Three columns across in landscape; narrower screens show fewer.
+            let columnWidth = max(340, (geometry.size.width - 4 * columnSpacing) / 3)
+            ScrollView(.horizontal) {
+                LazyHStack(alignment: .top, spacing: columnSpacing) {
+                    ForEach(Array(visibleColumns.enumerated()), id: \.offset) { _, groups in
+                        boardColumn(groups, width: columnWidth)
+                    }
                 }
+                .scrollTargetLayout()
+                .padding(columnSpacing)
             }
-            .scrollTargetLayout()
-            .padding(12)
+            .scrollTargetBehavior(.viewAligned)
         }
-        .scrollTargetBehavior(.viewAligned)
     }
 
-    private func boardColumn(_ organizations: [OrganizationKind]) -> some View {
+    private func boardColumn(_ groups: [HomeGroup], width: CGFloat) -> some View {
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: 12) {
-                ForEach(organizations) { org in
+                ForEach(groups) { group in
                     OrganizationCardView(
-                        organization: org,
+                        group: group,
                         editingDefinition: $editingDefinition,
                         pickerSlot: $pickerSlot,
                         onDrill: onDrill
@@ -124,7 +104,7 @@ struct WardCallingsView: View {
                 }
             }
         }
-        .frame(width: 460)
+        .frame(width: width)
     }
 }
 

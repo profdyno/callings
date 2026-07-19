@@ -1,21 +1,67 @@
 import SwiftUI
 
-/// One organization's card on the home page: header plus a two-column
-/// grid of calling / member name, grouped by subgroup.
+/// A home-board group: a real organization, or the virtual Activities
+/// Committee group carved out of Other Callings for display.
+enum HomeGroup: Hashable, Identifiable {
+    case org(OrganizationKind)
+    case activitiesCommittee
+
+    var id: String {
+        switch self {
+        case .org(let organization): return organization.rawValue
+        case .activitiesCommittee: return "ActivitiesCommittee"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .org(let organization): return organization.rawValue
+        case .activitiesCommittee: return "Activities Committee"
+        }
+    }
+
+    /// The data organization backing this group (drill target, subgroup names).
+    var organization: OrganizationKind {
+        switch self {
+        case .org(let organization): return organization
+        case .activitiesCommittee: return .otherCallings
+        }
+    }
+}
+
+/// One group's card on the home board: header plus a two-column grid of
+/// calling / member name, sectioned by subgroup.
 struct OrganizationCardView: View {
     @Environment(WardStore.self) private var store
-    let organization: OrganizationKind
+    let group: HomeGroup
     @Binding var editingDefinition: CallingDefinition?
     @Binding var pickerSlot: CallingSlot?
     var onDrill: (OrganizationKind) -> Void = { _ in }
 
+    var slots: [CallingSlot] {
+        let all = store.slots(in: group.organization)
+        switch group {
+        case .activitiesCommittee:
+            return all.filter { store.definition(for: $0)?.isActivitiesCommittee == true }
+        case .org(.otherCallings):
+            return all.filter { store.definition(for: $0)?.isActivitiesCommittee != true }
+        case .org:
+            return all
+        }
+    }
+
+    private var showsSubgroups: Bool {
+        if case .activitiesCommittee = group { return false }
+        return true
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Button {
-                onDrill(organization)
+                onDrill(group.organization)
             } label: {
                 HStack {
-                    Text(organization.rawValue)
+                    Text(group.title)
                         .font(.headline)
                     Spacer()
                     Image(systemName: "chevron.right")
@@ -25,20 +71,18 @@ struct OrganizationCardView: View {
             }
             .buttonStyle(.plain)
 
-            let slots = store.slots(in: organization)
-            let grouped = groupedBySubgroup(slots)
             Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 3) {
-                ForEach(grouped, id: \.subgroup) { group in
-                    if let subgroup = group.subgroup {
+                ForEach(groupedBySubgroup(slots), id: \.subgroup) { section in
+                    if showsSubgroups, let subgroup = section.subgroup {
                         GridRow {
-                            Text(CallingDefinition.subgroupDisplayName(subgroup, organization: organization))
+                            Text(CallingDefinition.subgroupDisplayName(subgroup, organization: group.organization))
                                 .font(.caption.smallCaps())
                                 .foregroundStyle(.secondary)
                                 .gridCellColumns(2)
                                 .padding(.top, 4)
                         }
                     }
-                    ForEach(group.slots) { slot in
+                    ForEach(section.slots) { slot in
                         CallingRowView(slot: slot, editingDefinition: $editingDefinition, pickerSlot: $pickerSlot)
                     }
                 }
@@ -48,16 +92,25 @@ struct OrganizationCardView: View {
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
     }
 
+    /// Sections in subgroup display order (EQ/RS: presidency, Ministering,
+    /// Teachers, then the imported order — stable for equal ranks).
     private func groupedBySubgroup(_ slots: [CallingSlot]) -> [(subgroup: String?, slots: [CallingSlot])] {
-        var result: [(subgroup: String?, slots: [CallingSlot])] = []
+        var sections: [(subgroup: String?, slots: [CallingSlot])] = []
         for slot in slots {
             let subgroup = store.definition(for: slot)?.subgroup
-            if let index = result.lastIndex(where: { $0.subgroup == subgroup }) {
-                result[index].slots.append(slot)
+            if let index = sections.lastIndex(where: { $0.subgroup == subgroup }) {
+                sections[index].slots.append(slot)
             } else {
-                result.append((subgroup, [slot]))
+                sections.append((subgroup, [slot]))
             }
         }
-        return result
+        return sections
+            .enumerated()
+            .sorted { a, b in
+                let rankA = CallingDefinition.subgroupRank(a.element.subgroup, organization: group.organization)
+                let rankB = CallingDefinition.subgroupRank(b.element.subgroup, organization: group.organization)
+                return rankA != rankB ? rankA < rankB : a.offset < b.offset
+            }
+            .map(\.element)
     }
 }

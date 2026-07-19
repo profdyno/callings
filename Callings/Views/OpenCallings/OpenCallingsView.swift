@@ -27,6 +27,7 @@ struct OpenCallingsView: View {
             }
             .navigationTitle(showArchived ? "Archived Callings" : "Open Callings")
             .navigationBarTitleDisplayMode(.inline)
+            .appToolbar()
             .toolbar {
                 Button {
                     UIPasteboard.general.string = ActionChecklistBuilder.markdown(from: store)

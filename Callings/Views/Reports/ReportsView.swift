@@ -12,6 +12,7 @@ struct ReportsView: View {
             .padding(12)
             .navigationTitle("Reports")
             .navigationBarTitleDisplayMode(.inline)
+            .appToolbar()
         }
     }
 }

@@ -102,12 +102,33 @@ struct CallingDefinition: Codable, Identifiable, Hashable {
             }
         }
 
+        // 2b. Young Women class-prefixed callings ("Gatherers of Light Class
+        // Specialist" → "Specialist") regardless of subgroup.
+        if organization == .youngWomen {
+            let stripped = result
+                .replacingOccurrences(of: #"^.*?\bClass\s+"#, with: "", options: .regularExpression)
+                .trimmingCharacters(in: .whitespaces)
+            if !stripped.isEmpty { result = stripped }
+        }
+
+        // 2c. Ward activities callings shown in the Activities Committee group.
+        if organization == .otherCallings {
+            if result == "Activities Committee Member" { result = "Member" }
+            if result == "Ward Activities Chair" { result = "Chair" }
+        }
+
         // 3. Abbreviations.
         result = result.replacingOccurrences(
             of: #"\bAssistant\b"#, with: "Asst", options: .regularExpression
         )
 
         return result.isEmpty ? name : result
+    }
+
+    /// True for the ward activities callings shown as their own home group.
+    var isActivitiesCommittee: Bool {
+        organization == .otherCallings &&
+            (name == "Activities Committee Member" || name == "Ward Activities Chair")
     }
 
     /// Display name for a subgroup header within an organization
@@ -119,5 +140,16 @@ struct CallingDefinition: Codable, Identifiable, Hashable {
         case "Service": return "Service Committee"
         default: return subgroup
         }
+    }
+
+    /// Display rank for subgroups within EQ/RS: presidency, then Ministering,
+    /// then Teachers, then the rest in their imported order.
+    static func subgroupRank(_ subgroup: String?, organization: OrganizationKind) -> Int {
+        guard organization == .eldersQuorum || organization == .reliefSociety else { return 10 }
+        guard let subgroup else { return 0 }
+        if subgroup.hasSuffix("Presidency") { return 0 }
+        if subgroup == "Ministering" { return 1 }
+        if subgroup == "Teachers" { return 2 }
+        return 10
     }
 }

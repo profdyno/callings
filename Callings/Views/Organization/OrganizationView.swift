@@ -20,7 +20,7 @@ struct OrganizationView: View {
     }
 
     private var rows: [Row] {
-        store.slots(in: organization).compactMap { slot in
+        store.slots(in: organization).compactMap { slot -> Row? in
             guard let definition = store.definition(for: slot) else { return nil }
             return Row(
                 slot: slot,
@@ -29,6 +29,15 @@ struct OrganizationView: View {
                 currentName: store.member(slot.memberID)?.name ?? slot.holderNameRaw ?? "Vacant"
             )
         }
+        // Subgroup display order (EQ/RS: presidency, Ministering, Teachers, rest)
+        // with the existing order preserved inside equal ranks.
+        .enumerated()
+        .sorted { a, b in
+            let rankA = CallingDefinition.subgroupRank(a.element.definition.subgroup, organization: organization)
+            let rankB = CallingDefinition.subgroupRank(b.element.definition.subgroup, organization: organization)
+            return rankA != rankB ? rankA < rankB : a.offset < b.offset
+        }
+        .map(\.element)
     }
 
     var body: some View {

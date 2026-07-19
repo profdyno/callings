@@ -127,6 +127,52 @@ final class ModelTests: XCTestCase {
             make("Relief Society Teacher", .reliefSociety, "Teachers").nameWithinOrganization,
             "Teacher"
         )
+
+        // YW class-prefixed callings shorten regardless of subgroup
+        XCTAssertEqual(
+            make("Gatherers of Light Class Specialist", .youngWomen, "Additional Young Women Callings").nameWithinOrganization,
+            "Specialist"
+        )
+        XCTAssertEqual(
+            make("Young Women Class Adviser", .youngWomen, "Additional Young Women Callings").nameWithinOrganization,
+            "Adviser"
+        )
+
+        // Activities Committee group names
+        XCTAssertEqual(
+            make("Activities Committee Member", .otherCallings, "Additional Callings").nameWithinOrganization,
+            "Member"
+        )
+        XCTAssertEqual(
+            make("Ward Activities Chair", .otherCallings, "Additional Callings").nameWithinOrganization,
+            "Chair"
+        )
+    }
+
+    func testActivitiesCommitteePredicateAndSubgroupRank() {
+        XCTAssertTrue(CallingDefinition(name: "Ward Activities Chair", organization: .otherCallings).isActivitiesCommittee)
+        XCTAssertTrue(CallingDefinition(name: "Activities Committee Member", organization: .otherCallings).isActivitiesCommittee)
+        XCTAssertFalse(CallingDefinition(name: "Ward Greeter", organization: .otherCallings).isActivitiesCommittee)
+        XCTAssertFalse(CallingDefinition(name: "Activities Committee Member", organization: .eldersQuorum).isActivitiesCommittee)
+
+        // EQ/RS: presidency < Ministering < Teachers < rest
+        XCTAssertLessThan(
+            CallingDefinition.subgroupRank("Relief Society Presidency", organization: .reliefSociety),
+            CallingDefinition.subgroupRank("Ministering", organization: .reliefSociety)
+        )
+        XCTAssertLessThan(
+            CallingDefinition.subgroupRank("Ministering", organization: .eldersQuorum),
+            CallingDefinition.subgroupRank("Teachers", organization: .eldersQuorum)
+        )
+        XCTAssertLessThan(
+            CallingDefinition.subgroupRank("Teachers", organization: .eldersQuorum),
+            CallingDefinition.subgroupRank("Activities", organization: .eldersQuorum)
+        )
+        // Other orgs untouched (flat rank)
+        XCTAssertEqual(
+            CallingDefinition.subgroupRank("Teachers", organization: .sundaySchool),
+            CallingDefinition.subgroupRank("Music", organization: .sundaySchool)
+        )
     }
 
     func testSubgroupDisplayNameCommitteeRenames() {
