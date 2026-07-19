@@ -75,3 +75,13 @@ Lessons learned building this app — review before touching the parsers or CI.
   Owner must run "Start Sharing" from the same kind of build participants
   use (TestFlight). The Sharing screen now shows the environment, and the
   owner has a Stop Sharing & Reset button to redo setup.
+- **CloudKit only adds a field to the schema when some record stores a
+  non-nil value in it.** Optional fields that were empty on every record
+  during the Development-environment exercise are missing from the deployed
+  Production schema, and Production then rejects any save touching them
+  (CKError 12: "Cannot create or modify field X in production schema") —
+  which looked like "assignments/statuses don't sync" while candidate adds
+  on fresh records worked. Fix: add the missing fields by hand in CloudKit
+  Console (Development → Schema → Record Types) and redeploy. Prevention:
+  exercise every optional field before a schema deploy, or maintain the
+  schema deliberately in the Console.
