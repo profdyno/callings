@@ -37,6 +37,9 @@ struct AddCallingSheet: View {
             .navigationTitle("New Calling")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    HelpButton(topic: .addCalling)
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }

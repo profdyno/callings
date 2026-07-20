@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// The app-wide leading toolbar: Sharing button plus the ⋯ menu with
-/// Import and the dark-background toggle. Applied on every tab so sharing
-/// and import are reachable from anywhere.
+/// The app-wide leading toolbar: Sharing button, the ⋯ menu with Import and
+/// the dark-background toggle, and the tab's help button. Applied on every
+/// tab so sharing and import are reachable from anywhere.
 struct AppToolbarModifier: ViewModifier {
+    let helpTopic: HelpTopic?
     @State private var showingSharing = false
     @State private var showingImport = false
     @AppStorage("appearanceDark") private var appearanceDark = false
@@ -29,6 +30,9 @@ struct AppToolbarModifier: ViewModifier {
                     } label: {
                         Label("More", systemImage: "ellipsis.circle")
                     }
+                    if let helpTopic {
+                        HelpButton(topic: helpTopic)
+                    }
                 }
             }
             .sheet(isPresented: $showingSharing) {
@@ -41,7 +45,7 @@ struct AppToolbarModifier: ViewModifier {
 }
 
 extension View {
-    func appToolbar() -> some View {
-        modifier(AppToolbarModifier())
+    func appToolbar(help topic: HelpTopic? = nil) -> some View {
+        modifier(AppToolbarModifier(helpTopic: topic))
     }
 }

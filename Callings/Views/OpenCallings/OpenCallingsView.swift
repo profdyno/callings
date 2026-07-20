@@ -63,7 +63,7 @@ struct OpenCallingsView: View {
             }
             .navigationTitle(showArchived ? "Archived Callings" : "Open Callings")
             .navigationBarTitleDisplayMode(.inline)
-            .appToolbar()
+            .appToolbar(help: .openCallings)
             .toolbar {
                 Toggle(isOn: $showArchived) {
                     Label("Archived", systemImage: "archivebox")

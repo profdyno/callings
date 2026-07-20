@@ -40,6 +40,20 @@ Lessons learned building this app — review before touching the parsers or CI.
   reports "unreadable", re-save the report on the iPad before debugging
   the parser.
 
+## SwiftUI (iPadOS)
+
+- **iPadOS `Table` silently drops its FIRST `Section` header** — and
+  `Section("") {}` doesn't compile in a TableRowBuilder. Workaround (see
+  ActionsView): flatten to a row enum and render styled header rows.
+- **A `.popover` whose `isPresented` is true at first render crashes** —
+  UIKit throws in `UIPopoverPresentationController presentationTransition-
+  WillBegin` because the toolbar button has no anchor yet (hit via the
+  `-help` launch arg initializing `@State showing = true`). Present from
+  `.task` after a short delay instead.
+- **`Text` inside a ScrollView inside a popover truncates with "…"
+  instead of wrapping** (inconsistently — some lines wrap, some don't).
+  Fix: `.fixedSize(horizontal: false, vertical: true)` on the Text.
+
 ## Build / CI
 
 - Bare `/regex/` literals don't compile in Swift 5 mode; use `#/regex/#`.

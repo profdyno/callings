@@ -128,6 +128,7 @@ struct OrganizationView: View {
         .navigationTitle(organization.rawValue)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            HelpButton(topic: .organizations)
             Button {
                 addingCalling = true
             } label: {

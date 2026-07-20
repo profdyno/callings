@@ -58,6 +58,7 @@ struct CandidatePickerSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItemGroup(placement: .topBarLeading) {
+                    HelpButton(topic: .candidatePicker)
                     Toggle("All Members", isOn: $ignoreCriteria)
                     Button {
                         editingDefinition = definition

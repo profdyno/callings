@@ -98,6 +98,9 @@ struct ImportView: View {
             .navigationTitle("Import")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    HelpButton(topic: .importData)
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }

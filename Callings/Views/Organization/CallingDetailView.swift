@@ -27,6 +27,9 @@ struct CallingDetailView: View {
         .padding(12)
         .navigationTitle(definition?.name ?? "Calling")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            HelpButton(topic: .callingDetail)
+        }
         .sheet(isPresented: $showingPicker) {
             CandidatePickerSheet(slotID: slotID)
         }

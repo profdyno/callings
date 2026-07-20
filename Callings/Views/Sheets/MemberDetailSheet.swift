@@ -30,6 +30,9 @@ struct MemberDetailSheet: View {
                 .navigationTitle(member.name)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        HelpButton(topic: .memberDetail)
+                    }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Done") { dismiss() }
                     }

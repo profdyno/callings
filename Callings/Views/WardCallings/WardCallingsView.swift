@@ -49,7 +49,7 @@ struct WardCallingsView: View {
             }
             .navigationTitle(store.data.wardName ?? "Ward")
             .navigationBarTitleDisplayMode(.inline)
-            .appToolbar()
+            .appToolbar(help: .ward)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {

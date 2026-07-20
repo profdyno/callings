@@ -61,6 +61,11 @@ struct SharingView: View {
             }
             .navigationTitle("Sharing")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    HelpButton(topic: .sharing)
+                }
+            }
             .confirmationDialog(
                 "Replace this iPad's data with the shared ward from iCloud?",
                 isPresented: $confirmingResync,

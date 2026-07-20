@@ -87,7 +87,7 @@ struct MembersView: View {
             .searchable(text: $searchText, prompt: "Name, class, or tag")
             .navigationTitle("Members")
             .navigationBarTitleDisplayMode(.inline)
-            .appToolbar()
+            .appToolbar(help: .members)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
@@ -160,6 +160,9 @@ struct TagManagerSheet: View {
             .navigationTitle("Manage Tags")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    HelpButton(topic: .tagManager)
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }

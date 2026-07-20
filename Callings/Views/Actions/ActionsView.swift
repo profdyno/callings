@@ -29,7 +29,7 @@ struct ActionsView: View {
             }
             .navigationTitle("Actions")
             .navigationBarTitleDisplayMode(.inline)
-            .appToolbar()
+            .appToolbar(help: .actions)
             .toolbar {
                 Button {
                     UIPasteboard.general.string = ActionChecklistBuilder.markdown(from: store)

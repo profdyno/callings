@@ -98,6 +98,9 @@ struct CallingEditorSheet: View {
                 }
             }
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    HelpButton(topic: .callingEditor)
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }

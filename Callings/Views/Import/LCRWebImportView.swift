@@ -66,6 +66,9 @@ struct LCRWebImportView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
                 }
+                ToolbarItem(placement: .topBarLeading) {
+                    HelpButton(topic: .lcrWeb)
+                }
                 ToolbarItemGroup(placement: .primaryAction) {
                     Menu {
                         Button {
