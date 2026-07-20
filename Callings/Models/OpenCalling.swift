@@ -5,6 +5,7 @@ enum BishopricMember: String, Codable, CaseIterable, Identifiable {
     case bishop = "Bishop"
     case firstCounselor = "1st Counselor"
     case secondCounselor = "2nd Counselor"
+    case execSecretary = "Exec Secretary"
     case stake = "Stake"
 
     var id: String { rawValue }
@@ -37,6 +38,12 @@ enum CallStatus: String, Codable, CaseIterable, Identifiable {
     case sustained = "Sustained" // color removed
 
     var id: String { rawValue }
+
+    /// UI name; the rawValue stays "Accepted" because it is persisted in
+    /// JSON and CloudKit records.
+    var displayName: String {
+        self == .accepted ? "Called" : rawValue
+    }
 
     var next: CallStatus {
         switch self {

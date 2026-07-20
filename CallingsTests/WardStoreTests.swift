@@ -72,6 +72,34 @@ final class WardStoreTests: XCTestCase {
         XCTAssertTrue(store.activeOpenCallings.isEmpty)
     }
 
+    func testCalledOrReleasedHandsOwnershipToExecSecretary() {
+        let (store, slot, _, new) = makeStore()
+        var entry = store.openCallingEntry(for: slot)
+        entry.releaseAssignedTo = .secondCounselor
+        entry.assignedTo = .bishop
+        entry.memberToBeCalledID = new.id
+        store.updateOpenCalling(entry)
+
+        // Reaching Released hands the release to the Exec Secretary.
+        entry = store.data.openCallings[0]
+        entry.releaseStatus = .released
+        store.updateOpenCalling(entry)
+        XCTAssertEqual(store.data.openCallings[0].releaseAssignedTo, .execSecretary)
+        XCTAssertEqual(store.data.openCallings[0].assignedTo, .bishop, "call side untouched")
+
+        // Reaching Called (accepted) hands the call to the Exec Secretary.
+        entry = store.data.openCallings[0]
+        entry.callStatus = .accepted
+        store.updateOpenCalling(entry)
+        XCTAssertEqual(store.data.openCallings[0].assignedTo, .execSecretary)
+
+        // Only the transition reassigns — a manual change afterwards sticks.
+        entry = store.data.openCallings[0]
+        entry.assignedTo = .firstCounselor
+        store.updateOpenCalling(entry)
+        XCTAssertEqual(store.data.openCallings[0].assignedTo, .firstCounselor)
+    }
+
     func testAddTagTrimsAndDeduplicates() {
         let (store, _, _, _) = makeStore()
         store.addTag("  Youth Speaker  ")

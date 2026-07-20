@@ -92,7 +92,7 @@ struct ToBeCalledCell: View {
                 }
                 Section("Status") {
                     ForEach(CallStatus.allCases) { status in
-                        Button(status.rawValue) {
+                        Button(status.displayName) {
                             var updated = ensureEntry()
                             updated.callStatus = status
                             store.updateOpenCalling(updated)
@@ -109,7 +109,7 @@ struct ToBeCalledCell: View {
                 Text(store.member(entry?.memberToBeCalledID)?.name ?? "—")
                     .foregroundStyle(entry?.callStatus.color ?? .primary)
                 if let status = entry?.callStatus, status != .none {
-                    Text(status.rawValue)
+                    Text(status.displayName)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }

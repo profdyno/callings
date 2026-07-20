@@ -131,7 +131,7 @@ struct OpenCallingsView: View {
         HStack(spacing: 10) {
             filterMenu("Group", selection: $filterOrganization, options: OrganizationKind.allCases) { $0.rawValue }
             filterMenu("Release", selection: $filterReleaseStatus, options: ReleaseStatus.allCases) { $0.rawValue }
-            filterMenu("Call Status", selection: $filterCallStatus, options: CallStatus.allCases) { $0.rawValue }
+            filterMenu("Call Status", selection: $filterCallStatus, options: CallStatus.allCases) { $0.displayName }
             filterMenu("Assigned (R)", selection: $filterReleaseAssignee, options: BishopricMember.allCases) { $0.rawValue }
             filterMenu("Assigned (C)", selection: $filterCallAssignee, options: BishopricMember.allCases) { $0.rawValue }
             if hasActiveFilters {

@@ -124,11 +124,13 @@ final class SyncServiceTests: XCTestCase {
         serviceB.stateStore.baseline = storeB.data
 
         // A assigns a bishopric member, selects the member to call, sets status —
-        // exactly what the table menu cells do.
+        // exactly what the table menu cells do. Reaching Called (accepted)
+        // hands the call to the Exec Secretary on A before it syncs.
         entry.assignedTo = .firstCounselor
         entry.releaseAssignedTo = .bishop
         entry.callStatus = .accepted
         storeA.updateOpenCalling(entry)
+        XCTAssertEqual(storeA.data.openCallings[0].assignedTo, .execSecretary)
 
         // The diff must catch it...
         let changes = SnapshotDiffer.diff(baseline: serviceA.stateStore.baseline!, current: storeA.data)
@@ -144,7 +146,7 @@ final class SyncServiceTests: XCTestCase {
 
         // ...and B applies it.
         serviceB.apply(modifications: [record], deletions: [])
-        XCTAssertEqual(storeB.data.openCallings[0].assignedTo, .firstCounselor)
+        XCTAssertEqual(storeB.data.openCallings[0].assignedTo, .execSecretary)
         XCTAssertEqual(storeB.data.openCallings[0].releaseAssignedTo, .bishop)
         XCTAssertEqual(storeB.data.openCallings[0].callStatus, .accepted)
     }

@@ -6,6 +6,7 @@ import SwiftUI
 /// LCR bookkeeping.
 struct ActionsView: View {
     @Environment(WardStore.self) private var store
+    @Environment(SyncService.self) private var syncService
     @State private var checklistCopied = false
     @State private var pickerSlotID: UUID?
 
@@ -48,56 +49,132 @@ struct ActionsView: View {
         }
     }
 
-    private var itemsByID: [UUID: ActionChecklistBuilder.Item] {
-        Dictionary(uniqueKeysWithValues: groups.flatMap(\.items).map { ($0.id, $0) })
+    /// Group titles rendered as in-table header rows: iPadOS Table drops the
+    /// header of its first Section, so native section headers can't be trusted.
+    private enum Line: Identifiable {
+        case header(String)
+        case item(ActionChecklistBuilder.Item)
+
+        var id: String {
+            switch self {
+            case .header(let title): return "header-\(title)"
+            case .item(let item): return item.id.uuidString
+            }
+        }
+
+        var item: ActionChecklistBuilder.Item? {
+            if case .item(let item) = self { return item }
+            return nil
+        }
+    }
+
+    private var lines: [Line] {
+        groups.flatMap { [.header($0.title)] + $0.items.map(Line.item) }
     }
 
     private var table: some View {
-        Table(of: ActionChecklistBuilder.Item.self) {
-            TableColumn("Action") { item in
-                Text(item.verb)
+        let lines = lines
+        return Table(lines) {
+            TableColumn("Action") { line in
+                switch line {
+                case .header(let title):
+                    Text(title)
+                        .font(.headline)
+                        .padding(.top, 6)
+                case .item(let item):
+                    Text(item.verb)
+                }
             }
-            .width(min: 100, ideal: 130)
+            .width(min: 130, ideal: 160)
 
-            TableColumn("Member") { item in
-                Text(item.member ?? "—")
-                    .foregroundStyle(item.member == nil ? Color.secondary : Color.primary)
+            TableColumn("Member") { line in
+                if let item = line.item {
+                    Text(item.member ?? "—")
+                        .foregroundStyle(item.member == nil ? Color.secondary : Color.primary)
+                }
             }
             .width(min: 150, ideal: 190)
 
-            TableColumn("Calling") { item in
-                Text(item.calling)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+            TableColumn("Calling") { line in
+                if let item = line.item {
+                    Text(item.calling)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .width(min: 180, ideal: 280)
 
-            TableColumn("Status") { item in
-                HStack {
-                    Text(item.detail)
-                        .foregroundStyle(.secondary)
-                    if item.slotID != nil {
-                        Button("Pick…") { pickerSlotID = item.slotID }
-                            .font(.callout)
-                            .buttonStyle(.borderless)
-                    }
+            TableColumn("Status") { line in
+                if let item = line.item {
+                    statusCell(item)
                 }
             }
             .width(min: 130, ideal: 170)
-        } rows: {
-            ForEach(groups) { group in
-                Section(group.title) {
-                    ForEach(group.items) { item in
-                        TableRow(item)
-                    }
-                }
-            }
         }
-        .contextMenu(forSelectionType: ActionChecklistBuilder.Item.ID.self) { _ in
+        .contextMenu(forSelectionType: Line.ID.self) { _ in
         } primaryAction: { ids in
-            if let id = ids.first, let slotID = itemsByID[id]?.slotID {
+            if let id = ids.first,
+               let slotID = lines.first(where: { $0.id == id })?.item?.slotID {
                 pickerSlotID = slotID
             }
         }
+    }
+
+    // MARK: - Status editing
+
+    @ViewBuilder
+    private func statusCell(_ item: ActionChecklistBuilder.Item) -> some View {
+        switch item.kind {
+        case .release:
+            statusMenu(item, options: ReleaseStatus.allCases, label: \.rawValue,
+                       canSet: { syncService.canSet(releaseStatus: $0) }) { entry, status in
+                entry.releaseStatus = status
+            }
+        case .call:
+            statusMenu(item, options: CallStatus.allCases, label: \.displayName,
+                       canSet: { syncService.canSet(callStatus: $0) }) { entry, status in
+                entry.callStatus = status
+            }
+        case .selectCandidate:
+            HStack {
+                Text(item.detail)
+                    .foregroundStyle(.secondary)
+                Button("Pick…") { pickerSlotID = item.slotID }
+                    .font(.callout)
+                    .buttonStyle(.borderless)
+            }
+        case .clerk:
+            Text(item.detail)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func statusMenu<Status: Identifiable>(
+        _ item: ActionChecklistBuilder.Item,
+        options: [Status],
+        label: KeyPath<Status, String>,
+        canSet: @escaping (Status) -> Bool,
+        apply: @escaping (inout OpenCalling, Status) -> Void
+    ) -> some View {
+        Menu {
+            ForEach(options) { status in
+                Button(status[keyPath: label]) {
+                    guard var entry = store.data.openCallings.first(where: { $0.id == item.entryID })
+                    else { return }
+                    apply(&entry, status)
+                    store.updateOpenCalling(entry)
+                }
+                // Announced/Sustained happen in sacrament meeting — owner only.
+                .disabled(!canSet(status))
+            }
+        } label: {
+            HStack(spacing: 3) {
+                Text(item.detail)
+                Image(systemName: "chevron.down")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }

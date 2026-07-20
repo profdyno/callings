@@ -6,8 +6,16 @@ import Foundation
 /// Ward Clerk section for app-created callings not yet in LCR.
 enum ActionChecklistBuilder {
 
+    enum Kind {
+        case release
+        case call
+        case selectCandidate
+        case clerk
+    }
+
     struct Item: Identifiable {
         let id = UUID()
+        let kind: Kind
         /// "Release", "Call", "Select candidate", "Add to LCR", "Delete from LCR"
         let verb: String
         /// The member acted on (released holder / person to call); nil for
@@ -16,7 +24,9 @@ enum ActionChecklistBuilder {
         let calling: String
         /// Status, candidate count, or organization — the parenthetical.
         let detail: String
-        /// Set for select-candidate items so the view can open the picker.
+        /// The open-calling entry behind release/call/select items, so the
+        /// Actions view can change statuses and open the candidate picker.
+        let entryID: UUID?
         let slotID: UUID?
 
         var markdownLine: String {
@@ -50,8 +60,8 @@ enum ActionChecklistBuilder {
             // Release still pending announcement.
             if let holder, entry.releaseStatus == .open || entry.releaseStatus == .released {
                 byAssignee[entry.releaseAssignedTo ?? .unassigned, default: []].append(Item(
-                    verb: "Release", member: holder, calling: calling,
-                    detail: entry.releaseStatus.rawValue, slotID: nil
+                    kind: .release, verb: "Release", member: holder, calling: calling,
+                    detail: entry.releaseStatus.rawValue, entryID: entry.id, slotID: nil
                 ))
             }
 
@@ -59,18 +69,18 @@ enum ActionChecklistBuilder {
             if let newMember = store.member(entry.memberToBeCalledID)?.name,
                entry.callStatus == .selected || entry.callStatus == .accepted {
                 byAssignee[entry.assignedTo, default: []].append(Item(
-                    verb: "Call", member: newMember, calling: calling,
-                    detail: entry.callStatus.rawValue, slotID: nil
+                    kind: .call, verb: "Call", member: newMember, calling: calling,
+                    detail: entry.callStatus.displayName, entryID: entry.id, slotID: nil
                 ))
             } else if entry.memberToBeCalledID == nil, entry.callStatus != .sustained {
                 selectCandidate.append(Item(
-                    verb: "Select candidate", member: nil, calling: calling,
-                    detail: "\(entry.candidateIDs.count) candidates", slotID: entry.slotID
+                    kind: .selectCandidate, verb: "Select candidate", member: nil, calling: calling,
+                    detail: "\(entry.candidateIDs.count) candidates", entryID: entry.id, slotID: entry.slotID
                 ))
             }
         }
 
-        let order: [BishopricMember] = [.bishop, .firstCounselor, .secondCounselor, .stake, .unassigned]
+        let order: [BishopricMember] = [.bishop, .firstCounselor, .secondCounselor, .execSecretary, .stake, .unassigned]
         var groups: [Group] = order.compactMap { assignee in
             guard let items = byAssignee[assignee] else { return nil }
             return Group(title: assignee.rawValue, items: items)
@@ -90,9 +100,10 @@ enum ActionChecklistBuilder {
         if !clerkWork.isEmpty {
             groups.append(Group(title: wardClerkTitle, items: clerkWork.map {
                 Item(
+                    kind: .clerk,
                     verb: $0.isMarkedForDeletion ? "Delete from LCR" : "Add to LCR",
                     member: nil, calling: $0.name,
-                    detail: $0.organization.rawValue, slotID: nil
+                    detail: $0.organization.rawValue, entryID: nil, slotID: nil
                 )
             }))
         }
