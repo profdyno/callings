@@ -123,6 +123,13 @@ final class CreatedCallingTests: XCTestCase {
         store.updateOpenCalling(entry)
 
         let markdown = ActionChecklistBuilder.markdown(from: store)
+        XCTAssertTrue(markdown.contains("**Select Candidate**"))
         XCTAssertTrue(markdown.contains("- [ ] Select candidate — Elders Quorum First Counselor (0 candidates)"))
+
+        // The structured groups feeding the Actions table put the item in the
+        // Select Candidate section with the slot wired for the picker.
+        let groups = ActionChecklistBuilder.groups(from: store)
+        let section = groups.first { $0.title == ActionChecklistBuilder.selectCandidateTitle }
+        XCTAssertEqual(section?.items.first?.slotID, slot.id)
     }
 }

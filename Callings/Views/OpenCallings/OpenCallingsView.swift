@@ -8,7 +8,6 @@ struct OpenCallingsView: View {
     @State private var showArchived = false
     @State private var pickerEntry: OpenCalling?
     @State private var editingDefinition: CallingDefinition?
-    @State private var checklistCopied = false
     // Column filters (nil = all)
     @State private var filterOrganization: OrganizationKind?
     @State private var filterReleaseStatus: ReleaseStatus?
@@ -66,21 +65,10 @@ struct OpenCallingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .appToolbar()
             .toolbar {
-                Button {
-                    UIPasteboard.general.string = ActionChecklistBuilder.markdown(from: store)
-                    checklistCopied = true
-                } label: {
-                    Label("Copy Action Checklist", systemImage: "square.and.arrow.up")
-                }
                 Toggle(isOn: $showArchived) {
                     Label("Archived", systemImage: "archivebox")
                 }
                 .toggleStyle(.button)
-            }
-            .alert("Checklist Copied", isPresented: $checklistCopied) {
-                Button("OK") {}
-            } message: {
-                Text("The action checklist is on the clipboard as markdown — paste it into Notes, a message, or an email.")
             }
             .sheet(item: $pickerEntry) { entry in
                 CandidatePickerSheet(slotID: entry.slotID)
