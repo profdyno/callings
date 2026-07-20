@@ -54,6 +54,13 @@ struct CallingRowView: View {
             NavigationLink(value: slot) {
                 Label("Details…", systemImage: "info.circle")
             }
+            if let memberID = slot.memberID {
+                Button {
+                    detailMemberID = memberID
+                } label: {
+                    Label("Member Details…", systemImage: "person.crop.circle")
+                }
+            }
             if let entry = openEntry {
                 if syncService.canDeleteOpenCallings {
                     Button(role: .destructive) {

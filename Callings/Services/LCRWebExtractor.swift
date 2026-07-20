@@ -172,33 +172,42 @@ enum LCRWebExtractor {
     /// copy-paste without a PII-heavy full dump.
     static let snapshotScript = """
     (() => {
-        const tables = Array.from(document.querySelectorAll('table')).map(t => ({
-            rows: t.querySelectorAll('tr').length,
-            firstRow: Array.from((t.querySelector('tr') || {querySelectorAll: () => []}).querySelectorAll('th,td')).map(c => (c.innerText || '').trim())
-        }));
-        // Find repeated structures: class names that occur many times.
-        const counts = {};
-        document.querySelectorAll('[class]').forEach(el => {
-            const key = el.tagName.toLowerCase() + '.' + el.className.toString().split(/\\s+/).slice(0, 2).join('.');
-            counts[key] = (counts[key] || 0) + 1;
-        });
-        const repeated = Object.entries(counts)
-            .filter(([, n]) => n >= 8)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 20)
-            .map(([key, n]) => {
-                const el = document.querySelector(key.replace(/^([a-z0-9]+)\\./, '$1.').split('.').slice(0, 2).join('.'));
-                let sample = '';
-                try { sample = (document.getElementsByClassName(key.split('.')[1])[0]?.innerText || '').slice(0, 90); } catch (e) {}
-                return {selector: key, count: n, sample: sample};
+        try {
+            const tables = Array.from(document.querySelectorAll('table')).map(t => ({
+                rows: t.querySelectorAll('tr').length,
+                firstRow: Array.from((t.querySelector('tr') || {querySelectorAll: () => []}).querySelectorAll('th,td')).map(c => (c.innerText || '').trim())
+            }));
+            // Repeated structures: class names that occur many times. Never
+            // build CSS selectors from page class names — modern frameworks
+            // use characters that make querySelector throw.
+            const counts = {};
+            document.querySelectorAll('[class]').forEach(el => {
+                const cls = (typeof el.className === 'string' ? el.className : '').split(/\\s+/)[0] || '';
+                if (!cls) { return; }
+                const key = el.tagName.toLowerCase() + '.' + cls;
+                counts[key] = (counts[key] || 0) + 1;
             });
-        return JSON.stringify({
-            title: document.title,
-            url: location.href,
-            tableCount: tables.length,
-            tables: tables.slice(0, 5),
-            repeatedStructures: repeated
-        }, null, 2);
+            const repeated = Object.entries(counts)
+                .filter(([, n]) => n >= 8)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 20)
+                .map(([key, n]) => {
+                    let sample = '';
+                    try {
+                        sample = (document.getElementsByClassName(key.split('.')[1])[0]?.innerText || '').slice(0, 90);
+                    } catch (e) {}
+                    return {selector: key, count: n, sample: sample};
+                });
+            return JSON.stringify({
+                title: document.title,
+                url: location.href,
+                tableCount: tables.length,
+                tables: tables.slice(0, 5),
+                repeatedStructures: repeated
+            }, null, 2);
+        } catch (e) {
+            return JSON.stringify({error: String(e), title: document.title, url: location.href});
+        }
     })()
     """
 }

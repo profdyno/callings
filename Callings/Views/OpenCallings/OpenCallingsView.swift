@@ -34,16 +34,31 @@ struct OpenCallingsView: View {
             Group {
                 if showArchived {
                     archivedList
-                } else if rows.isEmpty {
+                } else if store.activeOpenCallings.isEmpty {
+                    // Truly nothing to work — filters play no part here.
                     ContentUnavailableView(
                         "No Open Callings",
                         systemImage: "rectangle.stack",
-                        description: Text("Tap a calling on the Ward Callings page (or long-press it) to start a release/call.")
+                        description: Text("Tap a calling on the Ward page to start a release/call.")
                     )
                 } else {
+                    // Filter bar and table stay mounted even when the filters
+                    // match nothing, so there is always a way to clear them.
                     VStack(spacing: 0) {
                         filterBar
                         table
+                            .overlay {
+                                if rows.isEmpty {
+                                    ContentUnavailableView {
+                                        Label("No Matches", systemImage: "line.3.horizontal.decrease.circle")
+                                    } description: {
+                                        Text("No open callings match these filters.")
+                                    } actions: {
+                                        Button("Clear Filters") { clearFilters() }
+                                            .buttonStyle(.borderedProminent)
+                                    }
+                                }
+                            }
                     }
                 }
             }
@@ -185,7 +200,14 @@ struct OpenCallingsView: View {
             .width(28)
 
             TableColumn("Group") { row in
-                Text(row.organization.rawValue)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(row.organization.rawValue)
+                    if let subgroup = definition(for: row.entry)?.subgroup {
+                        Text(CallingDefinition.subgroupDisplayName(subgroup, organization: row.organization))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
             .width(min: 100, ideal: 150)
 
@@ -203,6 +225,8 @@ struct OpenCallingsView: View {
                     Text(row.callingName)
                         .strikethrough(rowDefinition?.isMarkedForDeletion == true)
                         .foregroundStyle(rowDefinition?.isPending == true ? .orange : .red)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .width(min: 180, ideal: 280)

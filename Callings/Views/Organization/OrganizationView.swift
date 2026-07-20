@@ -40,8 +40,21 @@ struct OrganizationView: View {
         .map(\.element)
     }
 
+    /// Rows grouped by subgroup, preserving the ranked order from `rows`.
+    private var sections: [(subgroup: String?, rows: [Row])] {
+        var sections: [(subgroup: String?, rows: [Row])] = []
+        for row in rows {
+            if let index = sections.lastIndex(where: { $0.subgroup == row.definition.subgroup }) {
+                sections[index].rows.append(row)
+            } else {
+                sections.append((row.definition.subgroup, [row]))
+            }
+        }
+        return sections
+    }
+
     var body: some View {
-        Table(rows) {
+        Table(of: Row.self) {
             TableColumn("Calling") { row in
                 HStack(spacing: 6) {
                     Button {
@@ -52,20 +65,15 @@ struct OrganizationView: View {
                     }
                     .buttonStyle(.plain)
                     .help("Edit criteria and display order")
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(row.definition.nameWithinOrganization)
-                            .strikethrough(row.definition.isMarkedForDeletion)
-                            .foregroundStyle(
-                                row.definition.isMarkedForDeletion ? Color.red
-                                : row.definition.isPending ? Color.orange
-                                : (row.entry != nil ? Color.red : Color.primary)
-                            )
-                        if let subgroup = row.definition.subgroup {
-                            Text(CallingDefinition.subgroupDisplayName(subgroup, organization: row.definition.organization))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+                    Text(row.definition.nameWithinOrganization)
+                        .strikethrough(row.definition.isMarkedForDeletion)
+                        .foregroundStyle(
+                            row.definition.isMarkedForDeletion ? Color.red
+                            : row.definition.isPending ? Color.orange
+                            : (row.entry != nil ? Color.red : Color.primary)
+                        )
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .width(min: 200, ideal: 300)
@@ -108,6 +116,14 @@ struct OrganizationView: View {
                 }
             }
             .width(min: 85, ideal: 105)
+        } rows: {
+            ForEach(sections, id: \.subgroup) { section in
+                Section(section.subgroup.map { CallingDefinition.subgroupDisplayName($0, organization: organization) } ?? organization.rawValue) {
+                    ForEach(section.rows) { row in
+                        TableRow(row)
+                    }
+                }
+            }
         }
         .navigationTitle(organization.rawValue)
         .navigationBarTitleDisplayMode(.inline)

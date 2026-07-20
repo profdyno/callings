@@ -83,6 +83,11 @@ struct LCRWebImportView: View {
                         } label: {
                             Label("Reload", systemImage: "arrow.clockwise")
                         }
+                        Button(role: .destructive) {
+                            signOutAndReset()
+                        } label: {
+                            Label("Sign Out & Reset", systemImage: "arrow.counterclockwise")
+                        }
                     } label: {
                         Label("More", systemImage: "ellipsis.circle")
                     }
@@ -212,11 +217,26 @@ struct LCRWebImportView: View {
     }
 
     private func copySnapshot() {
-        webView.evaluateJavaScript(LCRWebExtractor.snapshotScript) { result, _ in
+        webView.evaluateJavaScript(LCRWebExtractor.snapshotScript) { result, error in
             if let json = result as? String {
                 UIPasteboard.general.string = json
                 snapshotCopied = true
+            } else {
+                statusMessage = "Snapshot failed: \(error?.localizedDescription ?? "the page returned nothing")"
             }
+        }
+    }
+
+    /// Clears the web view's cookies and site data so the user can sign in
+    /// fresh — the LCR web app sometimes hangs on a half-restored session.
+    private func signOutAndReset() {
+        statusMessage = nil
+        let store = WKWebsiteDataStore.default()
+        store.removeData(
+            ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
+            modifiedSince: .distantPast
+        ) {
+            loadCurrentReport()
         }
     }
 }

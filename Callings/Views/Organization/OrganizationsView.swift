@@ -24,7 +24,6 @@ struct OrganizationsView: View {
                 .tag(org)
             }
             .navigationTitle("Organizations")
-            .appToolbar()
         } detail: {
             if let selection {
                 NavigationStack {

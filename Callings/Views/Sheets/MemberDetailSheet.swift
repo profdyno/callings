@@ -63,19 +63,25 @@ struct MemberDetailSheet: View {
                     }
                 }
                 if let phone = member.phone {
-                    Menu {
+                    HStack {
+                        Text(phone)
+                        Spacer()
                         Button {
                             if let url = URL(string: "tel:\(phoneDigits(phone))") { openURL(url) }
                         } label: {
-                            Label("Call", systemImage: "phone")
+                            Image(systemName: "phone.circle.fill")
+                                .font(.title2)
                         }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.accentColor)
                         Button {
                             if let url = URL(string: "sms:\(phoneDigits(phone))") { openURL(url) }
                         } label: {
-                            Label("Message", systemImage: "message")
+                            Image(systemName: "message.circle.fill")
+                                .font(.title2)
                         }
-                    } label: {
-                        Label(phone, systemImage: "phone")
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.accentColor)
                     }
                 }
             }

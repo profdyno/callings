@@ -71,4 +71,27 @@ final class WardStoreTests: XCTestCase {
         XCTAssertEqual(store.slotsByID[slot.id]?.memberID, new.id)
         XCTAssertTrue(store.activeOpenCallings.isEmpty)
     }
+
+    func testAddTagTrimsAndDeduplicates() {
+        let (store, _, _, _) = makeStore()
+        store.addTag("  Youth Speaker  ")
+        store.addTag("youth speaker")           // duplicate of custom tag
+        store.addTag("Moving Soon")             // collides with built-in
+        store.addTag("   ")                     // blank
+        XCTAssertEqual(store.data.customTags, ["Youth Speaker"])
+    }
+
+    func testDeleteTagClearsItFromMembers() {
+        let (store, _, old, new) = makeStore()
+        store.addTag("Temp")
+        store.setCategory(.other("Temp"), forMember: old.id)
+        store.setCategory(.movingSoon, forMember: new.id)
+        XCTAssertEqual(store.memberCount(withTag: "Temp"), 1)
+
+        store.deleteTag("Temp")
+
+        XCTAssertTrue(store.data.customTags.isEmpty)
+        XCTAssertEqual(store.member(old.id)?.category, MemberCategory.none)
+        XCTAssertEqual(store.member(new.id)?.category, .movingSoon)  // built-ins untouched
+    }
 }

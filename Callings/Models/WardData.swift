@@ -13,6 +13,14 @@ struct WardData: Codable, Equatable {
     /// Bumped on every Ward Callings import so synced devices know to run
     /// the reconcile pass. Optional for decode compatibility.
     var lastImportGeneration: Int?
+    /// User-managed member tags, shared across the ward (synced via
+    /// WardMeta). Optional for decode compatibility.
+    var customMemberTags: [String]?
+
+    var customTags: [String] {
+        get { customMemberTags ?? [] }
+        set { customMemberTags = newValue }
+    }
 
     var importGeneration: Int {
         get { lastImportGeneration ?? 0 }

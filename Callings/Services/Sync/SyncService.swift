@@ -279,6 +279,7 @@ final class SyncService {
                 data.lastCallingsImport = meta.lastCallingsImport
                 data.lastRosterImport = meta.lastRosterImport
                 data.importGeneration = meta.importGeneration
+                data.customTags = meta.customTags
             default:
                 break
             }

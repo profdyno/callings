@@ -218,6 +218,7 @@ enum CKRecordMapper {
         var lastRosterImport: Date?
         var schemaVersion: Int = 1
         var importGeneration: Int = 0
+        var customTags: [String] = []
     }
 
     static func populate(_ record: CKRecord, from meta: WardMeta) {
@@ -226,6 +227,7 @@ enum CKRecordMapper {
         record["lastRosterImport"] = meta.lastRosterImport
         record["schemaVersion"] = meta.schemaVersion
         record["importGeneration"] = meta.importGeneration
+        record["customTags"] = meta.customTags
     }
 
     static func wardMeta(from record: CKRecord) -> WardMeta {
@@ -234,7 +236,8 @@ enum CKRecordMapper {
             lastCallingsImport: record["lastCallingsImport"] as? Date,
             lastRosterImport: record["lastRosterImport"] as? Date,
             schemaVersion: record["schemaVersion"] as? Int ?? 1,
-            importGeneration: record["importGeneration"] as? Int ?? 0
+            importGeneration: record["importGeneration"] as? Int ?? 0,
+            customTags: record["customTags"] as? [String] ?? []
         )
     }
 }

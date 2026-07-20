@@ -34,6 +34,11 @@ Lessons learned building this app — review before touching the parsers or CI.
   Keep them as placeholder members; don't treat as parse failures.
 - The member list's Priesthood column is track-level only
   ("Aaronic"/"Melchizedek"), not office-level — the model reflects that.
+- **LCR PDFs saved from a laptop browser can be textless** (corrupt Type0
+  fonts — PDFKit extracts empty strings), while the SAME report saved from
+  the iPad parses perfectly (219 rows, 0 mismatches). If a PDF import
+  reports "unreadable", re-save the report on the iPad before debugging
+  the parser.
 
 ## Build / CI
 

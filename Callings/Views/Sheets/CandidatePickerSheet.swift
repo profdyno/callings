@@ -157,6 +157,11 @@ struct CategoryMenu: View {
                     store.setCategory(category, forMember: member.id)
                 }
             }
+            ForEach(store.data.customTags, id: \.self) { tag in
+                Button(tag) {
+                    store.setCategory(.other(tag), forMember: member.id)
+                }
+            }
         } label: {
             Text(member.category == .none ? "—" : member.category.label)
                 .font(.caption)

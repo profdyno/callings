@@ -212,6 +212,32 @@ final class WardStore {
         save()
     }
 
+    // MARK: - Managed tags
+
+    func addTag(_ tag: String) {
+        let trimmed = tag.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty,
+              !data.customTags.contains(where: { $0.caseInsensitiveCompare(trimmed) == .orderedSame }),
+              !MemberCategory.standardCases.contains(where: { $0.label.caseInsensitiveCompare(trimmed) == .orderedSame })
+        else { return }
+        data.customTags.append(trimmed)
+        save()
+    }
+
+    /// Removes a custom tag and clears it from every member that carries it.
+    func deleteTag(_ tag: String) {
+        data.customTags.removeAll { $0 == tag }
+        for index in data.members.indices where data.members[index].category == .other(tag) {
+            data.members[index].category = .none
+        }
+        save()
+    }
+
+    /// Members currently carrying a custom tag.
+    func memberCount(withTag tag: String) -> Int {
+        data.members.filter { $0.category == .other(tag) }.count
+    }
+
     func updateDefinition(_ definition: CallingDefinition) {
         guard let index = data.callingDefinitions.firstIndex(where: { $0.id == definition.id }) else { return }
         data.callingDefinitions[index] = definition

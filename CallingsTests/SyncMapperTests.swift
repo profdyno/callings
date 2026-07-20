@@ -112,7 +112,8 @@ final class SyncMapperTests: XCTestCase {
             lastCallingsImport: Date(timeIntervalSince1970: 1_780_000_000),
             lastRosterImport: nil,
             schemaVersion: 1,
-            importGeneration: 7
+            importGeneration: 7,
+            customTags: ["Youth Speaker", "New Move-In"]
         )
         let rec = record(type: "WardMeta", name: CKRecordMapper.wardMetaRecordName)
         CKRecordMapper.populate(rec, from: meta)

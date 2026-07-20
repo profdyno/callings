@@ -43,7 +43,8 @@ enum SnapshotDiffer {
             lastCallingsImport: data.lastCallingsImport,
             lastRosterImport: data.lastRosterImport,
             schemaVersion: data.schemaVersion,
-            importGeneration: data.importGeneration
+            importGeneration: data.importGeneration,
+            customTags: data.customTags
         )
     }
 
