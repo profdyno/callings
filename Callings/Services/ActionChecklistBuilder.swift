@@ -16,7 +16,8 @@ enum ActionChecklistBuilder {
     struct Item: Identifiable {
         let id = UUID()
         let kind: Kind
-        /// "Release", "Call", "Select candidate", "Add to LCR", "Delete from LCR"
+        /// "Approve Release", "Release", "Announce Release", "Approve Call",
+        /// "Call", "Sustain", "Select candidate", "Add to LCR", "Delete from LCR"
         let verb: String
         /// The member acted on (released holder / person to call); nil for
         /// select-candidate and clerk items.
@@ -57,21 +58,38 @@ enum ActionChecklistBuilder {
             let calling = definition.name
             let holder = store.member(slot.memberID)?.name ?? slot.holderNameRaw
 
-            // Release still pending announcement.
-            if let holder, entry.releaseStatus == .open || entry.releaseStatus == .released {
-                byAssignee[entry.releaseAssignedTo ?? .unassigned, default: []].append(Item(
-                    kind: .release, verb: "Release", member: holder, calling: calling,
-                    detail: entry.releaseStatus.rawValue, entryID: entry.id, slotID: nil
-                ))
+            // Rows route by status: the exec secretary (the owner) records
+            // approvals and the sacrament-meeting announce/sustain steps; the
+            // assigned bishopric member performs the release/call in between.
+            if let holder {
+                let release: (BishopricMember, String)? = switch entry.releaseStatus {
+                case .proposed: (.execSecretary, "Approve Release")
+                case .approved: (entry.releaseAssignedTo ?? .unassigned, "Release")
+                case .released: (.execSecretary, "Announce Release")
+                case .none, .announced: nil
+                }
+                if let (assignee, verb) = release {
+                    byAssignee[assignee, default: []].append(Item(
+                        kind: .release, verb: verb, member: holder, calling: calling,
+                        detail: entry.releaseStatus.rawValue, entryID: entry.id, slotID: nil
+                    ))
+                }
             }
 
             // Call in progress, or nobody picked yet.
-            if let newMember = store.member(entry.memberToBeCalledID)?.name,
-               entry.callStatus == .selected || entry.callStatus == .accepted {
-                byAssignee[entry.assignedTo, default: []].append(Item(
-                    kind: .call, verb: "Call", member: newMember, calling: calling,
-                    detail: entry.callStatus.displayName, entryID: entry.id, slotID: nil
-                ))
+            if let newMember = store.member(entry.memberToBeCalledID)?.name {
+                let call: (BishopricMember, String)? = switch entry.callStatus {
+                case .proposed: (.execSecretary, "Approve Call")
+                case .approved: (entry.assignedTo, "Call")
+                case .called: (.execSecretary, "Sustain")
+                case .none, .sustained: nil
+                }
+                if let (assignee, verb) = call {
+                    byAssignee[assignee, default: []].append(Item(
+                        kind: .call, verb: verb, member: newMember, calling: calling,
+                        detail: entry.callStatus.rawValue, entryID: entry.id, slotID: nil
+                    ))
+                }
             } else if entry.memberToBeCalledID == nil, entry.callStatus != .sustained {
                 selectCandidate.append(Item(
                     kind: .selectCandidate, verb: "Select candidate", member: nil, calling: calling,

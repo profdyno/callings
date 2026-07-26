@@ -1,23 +1,25 @@
 import SwiftUI
 
 extension ReleaseStatus {
-    /// Open → red, Released → blue, Announced → color removed.
+    /// Proposed → red, Approved → purple, Released → blue, Announced → color removed.
     var color: Color? {
         switch self {
         case .none, .announced: return nil
-        case .open: return .red
+        case .proposed: return .red
+        case .approved: return .purple
         case .released: return .blue
         }
     }
 }
 
 extension CallStatus {
-    /// Selected → yellow, Accepted → green, Sustained → color removed.
+    /// Proposed → yellow, Approved → purple, Called → green, Sustained → color removed.
     var color: Color? {
         switch self {
         case .none, .sustained: return nil
-        case .selected: return .yellow
-        case .accepted: return .green
+        case .proposed: return .yellow
+        case .approved: return .purple
+        case .called: return .green
         }
     }
 }

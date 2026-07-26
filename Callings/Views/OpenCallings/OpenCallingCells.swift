@@ -5,7 +5,8 @@ import SwiftUI
 /// `ensureEntry` closure so a row without an open entry starts one on first
 /// interaction.
 
-/// Current holder with the release-status ladder (Open → Released → Announced).
+/// Current holder with the release-status ladder
+/// (Proposed → Approved → Released → Announced).
 struct ReleaseStatusCell: View {
     @Environment(WardStore.self) private var store
     @Environment(SyncService.self) private var syncService
@@ -23,7 +24,7 @@ struct ReleaseStatusCell: View {
                     updated.releaseStatus = status
                     store.updateOpenCalling(updated)
                 }
-                // Announced happens in sacrament meeting — owner only.
+                // Approving and announcing belong to the owner (exec secretary).
                 .disabled(!syncService.canSet(releaseStatus: status))
             }
             if let memberID {
@@ -53,7 +54,7 @@ struct ReleaseStatusCell: View {
 }
 
 /// Member to be called: pick from the entry's candidates, then walk the
-/// call-status ladder (Selected → Accepted → Sustained).
+/// call-status ladder (Proposed → Approved → Called → Sustained).
 struct ToBeCalledCell: View {
     @Environment(WardStore.self) private var store
     @Environment(SyncService.self) private var syncService
@@ -84,7 +85,7 @@ struct ToBeCalledCell: View {
                             Button(member.name) {
                                 var updated = ensureEntry()
                                 updated.memberToBeCalledID = id
-                                if updated.callStatus == .none { updated.callStatus = .selected }
+                                if updated.callStatus == .none { updated.callStatus = .proposed }
                                 store.updateOpenCalling(updated)
                             }
                         }
@@ -92,12 +93,12 @@ struct ToBeCalledCell: View {
                 }
                 Section("Status") {
                     ForEach(CallStatus.allCases) { status in
-                        Button(status.displayName) {
+                        Button(status.rawValue) {
                             var updated = ensureEntry()
                             updated.callStatus = status
                             store.updateOpenCalling(updated)
                         }
-                        // Sustained happens in sacrament meeting — owner only.
+                        // Approving and sustaining belong to the owner (exec secretary).
                         .disabled(!syncService.canSet(callStatus: status))
                     }
                 }
@@ -109,7 +110,7 @@ struct ToBeCalledCell: View {
                 Text(store.member(entry?.memberToBeCalledID)?.name ?? "—")
                     .foregroundStyle(entry?.callStatus.color ?? .primary)
                 if let status = entry?.callStatus, status != .none {
-                    Text(status.displayName)
+                    Text(status.rawValue)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }

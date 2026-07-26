@@ -8,24 +8,40 @@ struct OpenCallingsView: View {
     @State private var showArchived = false
     @State private var pickerEntry: OpenCalling?
     @State private var editingDefinition: CallingDefinition?
-    // Column filters (nil = all)
+    // Filters (nil = all)
     @State private var filterOrganization: OrganizationKind?
-    @State private var filterReleaseStatus: ReleaseStatus?
-    @State private var filterCallStatus: CallStatus?
-    @State private var filterReleaseAssignee: BishopricMember?
-    @State private var filterCallAssignee: BishopricMember?
+    @State private var filterStage: StageFilter?
+    @State private var filterPerson: BishopricMember?
+
+    /// Workflow-stage quick filters: a row matches when EITHER ladder sits
+    /// at that stage.
+    private enum StageFilter: String, CaseIterable, Identifiable {
+        case approve = "Need to Approve"
+        case releaseCall = "Need to Release/Call"
+        case announceSustain = "Need to Announce/Sustain"
+
+        var id: String { rawValue }
+
+        func matches(_ entry: OpenCalling) -> Bool {
+            switch self {
+            case .approve:
+                entry.releaseStatus == .proposed || entry.callStatus == .proposed
+            case .releaseCall:
+                entry.releaseStatus == .approved || entry.callStatus == .approved
+            case .announceSustain:
+                entry.releaseStatus == .released || entry.callStatus == .called
+            }
+        }
+    }
 
     private var hasActiveFilters: Bool {
-        filterOrganization != nil || filterReleaseStatus != nil || filterCallStatus != nil
-            || filterReleaseAssignee != nil || filterCallAssignee != nil
+        filterOrganization != nil || filterStage != nil || filterPerson != nil
     }
 
     private func clearFilters() {
         filterOrganization = nil
-        filterReleaseStatus = nil
-        filterCallStatus = nil
-        filterReleaseAssignee = nil
-        filterCallAssignee = nil
+        filterStage = nil
+        filterPerson = nil
     }
 
     var body: some View {
@@ -109,10 +125,10 @@ struct OpenCallingsView: View {
         }
         .filter { row in
             if let filterOrganization, row.organization != filterOrganization { return false }
-            if let filterReleaseStatus, row.entry.releaseStatus != filterReleaseStatus { return false }
-            if let filterCallStatus, row.entry.callStatus != filterCallStatus { return false }
-            if let filterReleaseAssignee, (row.entry.releaseAssignedTo ?? .unassigned) != filterReleaseAssignee { return false }
-            if let filterCallAssignee, row.entry.assignedTo != filterCallAssignee { return false }
+            if let filterStage, !filterStage.matches(row.entry) { return false }
+            if let filterPerson,
+               (row.entry.releaseAssignedTo ?? .unassigned) != filterPerson,
+               row.entry.assignedTo != filterPerson { return false }
             return true
         }
         .sorted {
@@ -126,22 +142,45 @@ struct OpenCallingsView: View {
         }
     }
 
-    /// Compact per-column filters above the table.
+    /// Stage and person toggle buttons plus the Group menu, above the table.
     private var filterBar: some View {
-        HStack(spacing: 10) {
-            filterMenu("Group", selection: $filterOrganization, options: OrganizationKind.allCases) { $0.rawValue }
-            filterMenu("Release", selection: $filterReleaseStatus, options: ReleaseStatus.allCases) { $0.rawValue }
-            filterMenu("Call Status", selection: $filterCallStatus, options: CallStatus.allCases) { $0.displayName }
-            filterMenu("Assigned (R)", selection: $filterReleaseAssignee, options: BishopricMember.allCases) { $0.rawValue }
-            filterMenu("Assigned (C)", selection: $filterCallAssignee, options: BishopricMember.allCases) { $0.rawValue }
-            if hasActiveFilters {
-                Button("Clear") { clearFilters() }
-                    .font(.callout)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(StageFilter.allCases) { stage in
+                    toggleChip(stage.rawValue, isOn: filterStage == stage) {
+                        filterStage = filterStage == stage ? nil : stage
+                    }
+                }
+                Divider()
+                    .frame(height: 20)
+                ForEach([BishopricMember.bishop, .firstCounselor, .secondCounselor]) { member in
+                    toggleChip(member.rawValue, isOn: filterPerson == member) {
+                        filterPerson = filterPerson == member ? nil : member
+                    }
+                }
+                Divider()
+                    .frame(height: 20)
+                filterMenu("Group", selection: $filterOrganization, options: OrganizationKind.allCases) { $0.rawValue }
+                if hasActiveFilters {
+                    Button("Clear") { clearFilters() }
+                        .font(.callout)
+                }
             }
-            Spacer()
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+    }
+
+    private func toggleChip(_ title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.callout)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(isOn ? Color.accentColor : Color(.systemGray5), in: Capsule())
+                .foregroundStyle(isOn ? .white : .primary)
+        }
+        .buttonStyle(.plain)
     }
 
     private func filterMenu<T: Hashable>(

@@ -89,16 +89,17 @@ final class CreatedCallingTests: XCTestCase {
         data.callingSlots[0].memberID = holder.id
         store.apply(data)
 
-        // Release assigned to 2nd counselor; call assigned to bishop. Statuses
-        // stay before the Called/Released handoff so the assignments hold.
+        // Release assigned to 2nd counselor; call assigned to bishop. Approved
+        // items sit with the assigned member (Proposed/Released/Called rows
+        // route to the Exec Secretary instead).
         let slot = store.data.callingSlots[0]
         var entry = store.openCallingEntry(for: slot)
-        entry.releaseStatus = .open
+        entry.releaseStatus = .approved
         entry.releaseAssignedTo = .secondCounselor
         entry.assignedTo = .bishop
         entry.candidateIDs = [candidate.id]
         entry.memberToBeCalledID = candidate.id
-        entry.callStatus = .selected
+        entry.callStatus = .approved
         store.updateOpenCalling(entry)
 
         // A pending calling for the Ward Clerk block.
@@ -108,15 +109,15 @@ final class CreatedCallingTests: XCTestCase {
 
         XCTAssertTrue(markdown.hasPrefix("# Calling Actions —"))
         XCTAssertTrue(markdown.contains("**Bishop**"))
-        XCTAssertTrue(markdown.contains("- [ ] Call Smith, John — Elders Quorum President (Selected)"))
+        XCTAssertTrue(markdown.contains("- [ ] Call Smith, John — Elders Quorum President (Approved)"))
         XCTAssertTrue(markdown.contains("**2nd Counselor**"))
-        XCTAssertTrue(markdown.contains("- [ ] Release Jones, Amy — Elders Quorum President (Open)"))
+        XCTAssertTrue(markdown.contains("- [ ] Release Jones, Amy — Elders Quorum President (Approved)"))
         XCTAssertTrue(markdown.contains("**Ward Clerk**"))
         XCTAssertTrue(markdown.contains("- [ ] Add to LCR — Elders Quorum Historian (Elders Quorum)"))
         XCTAssertFalse(markdown.contains("**1st Counselor**"), "empty sections omitted")
     }
 
-    func testCalledStatusRendersAsCalledInChecklist() {
+    func testCalledItemBecomesSustainActionForExecSecretary() {
         let store = makeStore()
         var data = store.data
         let candidate = Member(name: "Smith, John")
@@ -128,13 +129,12 @@ final class CreatedCallingTests: XCTestCase {
         entry.releaseStatus = .none
         entry.candidateIDs = [candidate.id]
         entry.memberToBeCalledID = candidate.id
-        entry.callStatus = .accepted
+        entry.callStatus = .called
         store.updateOpenCalling(entry)
 
-        // Accepted persists as "Accepted" but reads "Called" everywhere.
         let markdown = ActionChecklistBuilder.markdown(from: store)
-        XCTAssertTrue(markdown.contains("- [ ] Call Smith, John — Elders Quorum President (Called)"))
-        XCTAssertFalse(markdown.contains("(Accepted)"))
+        XCTAssertTrue(markdown.contains("**Exec Secretary**"))
+        XCTAssertTrue(markdown.contains("- [ ] Sustain Smith, John — Elders Quorum President (Called)"))
     }
 
     func testChecklistSelectCandidateItem() {

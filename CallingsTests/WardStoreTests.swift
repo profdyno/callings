@@ -72,32 +72,44 @@ final class WardStoreTests: XCTestCase {
         XCTAssertTrue(store.activeOpenCallings.isEmpty)
     }
 
-    func testCalledOrReleasedHandsOwnershipToExecSecretary() {
+    /// Checklist rows route by status: the Exec Secretary owns approvals and
+    /// the sacrament-meeting steps; the assigned member owns the step in
+    /// between. The assignment fields themselves never change hands.
+    func testChecklistRoutesByStatus() {
         let (store, slot, _, new) = makeStore()
         var entry = store.openCallingEntry(for: slot)
         entry.releaseAssignedTo = .secondCounselor
         entry.assignedTo = .bishop
         entry.memberToBeCalledID = new.id
+        entry.callStatus = .proposed
         store.updateOpenCalling(entry)
 
-        // Reaching Released hands the release to the Exec Secretary.
+        func items(_ group: String) -> [String] {
+            ActionChecklistBuilder.groups(from: store)
+                .first { $0.title == group }?.items.map(\.verb) ?? []
+        }
+
+        // Proposed: both halves wait on the Exec Secretary's approval.
+        XCTAssertEqual(items("Exec Secretary"), ["Approve Release", "Approve Call"])
+
+        // Approved: each half moves to its assigned member.
+        entry = store.data.openCallings[0]
+        entry.releaseStatus = .approved
+        entry.callStatus = .approved
+        store.updateOpenCalling(entry)
+        XCTAssertEqual(items("2nd Counselor"), ["Release"])
+        XCTAssertEqual(items("Bishop"), ["Call"])
+        XCTAssertEqual(items("Exec Secretary"), [])
+
+        // Released/Called: back to the Exec Secretary for sacrament meeting,
+        // with the assignments untouched.
         entry = store.data.openCallings[0]
         entry.releaseStatus = .released
+        entry.callStatus = .called
         store.updateOpenCalling(entry)
-        XCTAssertEqual(store.data.openCallings[0].releaseAssignedTo, .execSecretary)
-        XCTAssertEqual(store.data.openCallings[0].assignedTo, .bishop, "call side untouched")
-
-        // Reaching Called (accepted) hands the call to the Exec Secretary.
-        entry = store.data.openCallings[0]
-        entry.callStatus = .accepted
-        store.updateOpenCalling(entry)
-        XCTAssertEqual(store.data.openCallings[0].assignedTo, .execSecretary)
-
-        // Only the transition reassigns — a manual change afterwards sticks.
-        entry = store.data.openCallings[0]
-        entry.assignedTo = .firstCounselor
-        store.updateOpenCalling(entry)
-        XCTAssertEqual(store.data.openCallings[0].assignedTo, .firstCounselor)
+        XCTAssertEqual(items("Exec Secretary"), ["Announce Release", "Sustain"])
+        XCTAssertEqual(store.data.openCallings[0].releaseAssignedTo, .secondCounselor)
+        XCTAssertEqual(store.data.openCallings[0].assignedTo, .bishop)
     }
 
     func testAddTagTrimsAndDeduplicates() {

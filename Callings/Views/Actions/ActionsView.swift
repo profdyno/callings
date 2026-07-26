@@ -131,7 +131,7 @@ struct ActionsView: View {
                 entry.releaseStatus = status
             }
         case .call:
-            statusMenu(item, options: CallStatus.allCases, label: \.displayName,
+            statusMenu(item, options: CallStatus.allCases, label: \.rawValue,
                        canSet: { syncService.canSet(callStatus: $0) }) { entry, status in
                 entry.callStatus = status
             }
@@ -164,7 +164,7 @@ struct ActionsView: View {
                     apply(&entry, status)
                     store.updateOpenCalling(entry)
                 }
-                // Announced/Sustained happen in sacrament meeting — owner only.
+                // Approved and Announced/Sustained are owner (exec secretary) only.
                 .disabled(!canSet(status))
             }
         } label: {

@@ -14,7 +14,8 @@ enum BishopricMember: String, Codable, CaseIterable, Identifiable {
 /// Status ladder for releasing the current holder.
 enum ReleaseStatus: String, Codable, CaseIterable, Identifiable {
     case none = "—"
-    case open = "Open"           // red
+    case proposed = "Proposed"   // red
+    case approved = "Approved"   // purple
     case released = "Released"   // blue
     case announced = "Announced" // color removed
 
@@ -22,36 +23,58 @@ enum ReleaseStatus: String, Codable, CaseIterable, Identifiable {
 
     var next: ReleaseStatus {
         switch self {
-        case .none: return .open
-        case .open: return .released
+        case .none: return .proposed
+        case .proposed: return .approved
+        case .approved: return .released
         case .released: return .announced
         case .announced: return .announced
         }
+    }
+
+    /// Decodes current rawValues plus the pre-approval-step legacy values
+    /// still present in saved JSON and CloudKit records.
+    init(persisted raw: String) {
+        self = ReleaseStatus(rawValue: raw)
+            ?? (raw == "Open" ? .proposed : .none)
+    }
+
+    init(from decoder: Decoder) throws {
+        self.init(persisted: try decoder.singleValueContainer().decode(String.self))
     }
 }
 
 /// Status ladder for calling the new member.
 enum CallStatus: String, Codable, CaseIterable, Identifiable {
     case none = "—"
-    case selected = "Selected"   // yellow
-    case accepted = "Accepted"   // green
+    case proposed = "Proposed"   // yellow
+    case approved = "Approved"   // purple
+    case called = "Called"       // green
     case sustained = "Sustained" // color removed
 
     var id: String { rawValue }
 
-    /// UI name; the rawValue stays "Accepted" because it is persisted in
-    /// JSON and CloudKit records.
-    var displayName: String {
-        self == .accepted ? "Called" : rawValue
-    }
-
     var next: CallStatus {
         switch self {
-        case .none: return .selected
-        case .selected: return .accepted
-        case .accepted: return .sustained
+        case .none: return .proposed
+        case .proposed: return .approved
+        case .approved: return .called
+        case .called: return .sustained
         case .sustained: return .sustained
         }
+    }
+
+    /// Decodes current rawValues plus the pre-approval-step legacy values
+    /// still present in saved JSON and CloudKit records.
+    init(persisted raw: String) {
+        switch raw {
+        case "Selected": self = .proposed
+        case "Accepted": self = .called
+        default: self = CallStatus(rawValue: raw) ?? .none
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        self.init(persisted: try decoder.singleValueContainer().decode(String.self))
     }
 }
 
@@ -64,7 +87,7 @@ struct OpenCalling: Codable, Identifiable, Hashable {
     /// Who conducts the release ("Assigned (Release)"). Optional so data
     /// saved before this field existed still decodes; nil = unassigned.
     var releaseAssignedTo: BishopricMember?
-    var releaseStatus: ReleaseStatus = .open
+    var releaseStatus: ReleaseStatus = .proposed
     var memberToBeCalledID: UUID?
     var callStatus: CallStatus = .none
     var candidateIDs: [UUID] = []

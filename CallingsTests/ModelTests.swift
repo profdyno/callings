@@ -48,6 +48,7 @@ final class ModelTests: XCTestCase {
         let entry = try decoder.decode(OpenCalling.self, from: Data(json.utf8))
         XCTAssertNil(entry.releaseAssignedTo)
         XCTAssertEqual(entry.assignedTo, .bishop)
+        XCTAssertEqual(entry.releaseStatus, .proposed, "legacy \"Open\" maps to Proposed")
     }
 
     func testNameWithinOrganizationStripsGroupPrefix() {

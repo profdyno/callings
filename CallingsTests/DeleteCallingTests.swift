@@ -39,7 +39,7 @@ final class DeleteCallingTests: XCTestCase {
         // The holder's release is now tracked in Open Callings.
         let entry = store.activeOpenCallings.first
         XCTAssertNotNil(entry)
-        XCTAssertEqual(entry?.releaseStatus, .open)
+        XCTAssertEqual(entry?.releaseStatus, .proposed)
         XCTAssertEqual(store.slotsByID[entry!.slotID]?.memberID, holder.id)
 
         store.cancelDeletion(of: marked)

@@ -118,7 +118,7 @@ final class WardStore {
         if let existing = openCalling(forSlot: slot.id) { return existing }
         var entry = OpenCalling(slotID: slot.id)
         // A vacant slot has nobody to release.
-        entry.releaseStatus = slot.memberID == nil ? .none : .open
+        entry.releaseStatus = slot.memberID == nil ? .none : .proposed
         data.openCallings.append(entry)
         save()
         return entry
@@ -131,17 +131,6 @@ final class WardStore {
 
     func updateOpenCalling(_ entry: OpenCalling) {
         guard let index = data.openCallings.firstIndex(where: { $0.id == entry.id }) else { return }
-        var entry = entry
-        let previous = data.openCallings[index]
-        // Announcing and sustaining happen in sacrament meeting: the moment a
-        // member is Called or Released, the agenda work belongs to the
-        // Exec Secretary, so ownership hands over automatically.
-        if entry.callStatus == .accepted, previous.callStatus != .accepted {
-            entry.assignedTo = .execSecretary
-        }
-        if entry.releaseStatus == .released, previous.releaseStatus != .released {
-            entry.releaseAssignedTo = .execSecretary
-        }
         data.openCallings[index] = entry
         completeIfFinished(entry.id)
         save()

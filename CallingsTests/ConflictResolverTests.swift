@@ -24,11 +24,11 @@ final class ConflictResolverTests: XCTestCase {
     func testDisjointFieldEditsBothSurvive() {
         let (client, server, ancestor) = openCallingRecords()
         client["notes"] = "client edit"
-        server["callStatus"] = CallStatus.accepted.rawValue
+        server["callStatus"] = CallStatus.called.rawValue
 
         let merged = ConflictResolver.merge(client: client, server: server, ancestor: ancestor)
         XCTAssertEqual(merged["notes"] as? String, "client edit")
-        XCTAssertEqual(merged["callStatus"] as? String, CallStatus.accepted.rawValue)
+        XCTAssertEqual(merged["callStatus"] as? String, CallStatus.called.rawValue)
     }
 
     func testSameFieldClientWinsWhenChanged() {
@@ -77,7 +77,7 @@ final class ConflictResolverTests: XCTestCase {
         server["snapshotNewHolder"] = "New, Holder"
         server["callStatus"] = CallStatus.sustained.rawValue
         // Client, offline, tried to advance the call status and edit notes.
-        client["callStatus"] = CallStatus.accepted.rawValue
+        client["callStatus"] = CallStatus.called.rawValue
         client["notes"] = "offline note"
 
         let merged = ConflictResolver.merge(client: client, server: server, ancestor: ancestor)

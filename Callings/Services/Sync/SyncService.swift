@@ -132,14 +132,15 @@ final class SyncService {
 
     // MARK: - Permission gating (transition-level)
 
-    /// Participants can move the early ladder steps; only the owner performs
-    /// the sacrament-meeting finalizers.
+    /// The owner (the exec secretary) records the bishopric's approval and
+    /// the sacrament-meeting finalizers; participants propose changes and
+    /// perform the releases/calls themselves.
     func canSet(releaseStatus: ReleaseStatus) -> Bool {
-        isOwner || releaseStatus != .announced
+        isOwner || (releaseStatus != .approved && releaseStatus != .announced)
     }
 
     func canSet(callStatus: CallStatus) -> Bool {
-        isOwner || callStatus != .sustained
+        isOwner || (callStatus != .approved && callStatus != .sustained)
     }
 
     var canImport: Bool { isOwner }

@@ -15,11 +15,13 @@ final class SyncServiceTests: XCTestCase {
 
     func testPermissionGatesForParticipant() {
         let (service, _) = makeService(role: .participant)
-        XCTAssertTrue(service.canSet(releaseStatus: .open))
+        XCTAssertTrue(service.canSet(releaseStatus: .proposed))
+        XCTAssertFalse(service.canSet(releaseStatus: .approved), "approval is owner-only")
         XCTAssertTrue(service.canSet(releaseStatus: .released))
         XCTAssertFalse(service.canSet(releaseStatus: .announced), "sacrament-meeting step is owner-only")
-        XCTAssertTrue(service.canSet(callStatus: .selected))
-        XCTAssertTrue(service.canSet(callStatus: .accepted))
+        XCTAssertTrue(service.canSet(callStatus: .proposed))
+        XCTAssertFalse(service.canSet(callStatus: .approved), "approval is owner-only")
+        XCTAssertTrue(service.canSet(callStatus: .called))
         XCTAssertFalse(service.canSet(callStatus: .sustained), "sacrament-meeting step is owner-only")
         XCTAssertFalse(service.canImport)
     }
@@ -27,7 +29,9 @@ final class SyncServiceTests: XCTestCase {
     func testPermissionGatesForOwnerAndSolo() {
         for role in [SyncRole.owner, .solo] {
             let (service, _) = makeService(role: role)
+            XCTAssertTrue(service.canSet(releaseStatus: .approved))
             XCTAssertTrue(service.canSet(releaseStatus: .announced))
+            XCTAssertTrue(service.canSet(callStatus: .approved))
             XCTAssertTrue(service.canSet(callStatus: .sustained))
             XCTAssertTrue(service.canImport)
         }
@@ -124,13 +128,13 @@ final class SyncServiceTests: XCTestCase {
         serviceB.stateStore.baseline = storeB.data
 
         // A assigns a bishopric member, selects the member to call, sets status —
-        // exactly what the table menu cells do. Reaching Called (accepted)
-        // hands the call to the Exec Secretary on A before it syncs.
+        // exactly what the table menu cells do. Assignments stick; the Actions
+        // tab routes the sustain step to the Exec Secretary by status alone.
         entry.assignedTo = .firstCounselor
         entry.releaseAssignedTo = .bishop
-        entry.callStatus = .accepted
+        entry.callStatus = .called
         storeA.updateOpenCalling(entry)
-        XCTAssertEqual(storeA.data.openCallings[0].assignedTo, .execSecretary)
+        XCTAssertEqual(storeA.data.openCallings[0].assignedTo, .firstCounselor)
 
         // The diff must catch it...
         let changes = SnapshotDiffer.diff(baseline: serviceA.stateStore.baseline!, current: storeA.data)
@@ -146,9 +150,9 @@ final class SyncServiceTests: XCTestCase {
 
         // ...and B applies it.
         serviceB.apply(modifications: [record], deletions: [])
-        XCTAssertEqual(storeB.data.openCallings[0].assignedTo, .execSecretary)
+        XCTAssertEqual(storeB.data.openCallings[0].assignedTo, .firstCounselor)
         XCTAssertEqual(storeB.data.openCallings[0].releaseAssignedTo, .bishop)
-        XCTAssertEqual(storeB.data.openCallings[0].callStatus, .accepted)
+        XCTAssertEqual(storeB.data.openCallings[0].callStatus, .called)
     }
 
     func testPrepareForResyncWipesDataButKeepsRole() {

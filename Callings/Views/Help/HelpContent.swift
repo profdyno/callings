@@ -85,14 +85,14 @@ extension HelpTopic {
                 sections: [
                     .init([
                         "Pick an organization in the sidebar.",
-                        "Current (Release) walks the release forward: Open → Released → Announced.",
+                        "Current (Release) walks the release forward: Proposed → Approved → Released → Announced.",
                         "Candidates opens the candidate picker for that calling.",
-                        "To Be Called picks who to call and walks the call forward: Selected → Called → Sustained.",
+                        "To Be Called picks who to call and walks the call forward: Proposed → Approved → Called → Sustained.",
                         "The two Assigned columns say which bishopric member owns the release and the call.",
                     ]),
                     .init("Good to Know", [
-                        "Announced and Sustained happen in sacrament meeting, so only the owner's iPad can set them — they're grayed out for everyone else.",
-                        "When a status reaches Called or Released, the item is handed to the Exec Secretary automatically.",
+                        "Approved, Announced, and Sustained are set on the exec secretary's iPad (the owner) — they're grayed out for everyone else.",
+                        "Proposed items wait for approval on the Actions tab; once Released or Called, the announce/sustain step appears there too.",
                         "The slider icon edits a calling's candidate criteria and display order.",
                         "When both the release and the call finish, the change completes and moves to the archive.",
                     ]),
@@ -126,7 +126,8 @@ extension HelpTopic {
                 sections: [
                     .init([
                         "Start a change by tapping a calling on the Ward page, or Add to Open Callings from its long-press menu.",
-                        "The filter bar narrows by group, status, or assignee — Clear brings everything back.",
+                        "The stage buttons filter to what's waiting: Need to Approve, Need to Release/Call, or Need to Announce/Sustain — a row matches if either its release or its call sits at that stage.",
+                        "The Bishop / 1st Counselor / 2nd Counselor buttons filter to changes assigned to that member; combine them with a stage button.",
                         "The trash button deletes a change; long-press a row to archive it instead.",
                     ]),
                     .init("Archived", [
@@ -141,13 +142,14 @@ extension HelpTopic {
                 summary: "The to-do list for bishopric meeting: who releases whom, who extends which call, which callings still need a candidate, and what the clerk records in LCR.",
                 sections: [
                     .init([
-                        "Rows are grouped by owner — each bishopric member sees their releases and calls.",
+                        "Rows are grouped by who acts next — each bishopric member sees the releases and calls assigned to them.",
+                        "The Exec Secretary section holds approvals (Proposed items) and the sacrament-meeting steps (Announce and Sustain).",
                         "Change a status right here with its menu.",
                         "Select Candidate lists callings with nobody picked yet — tap Pick… to choose.",
                         "Ward Clerk lists LCR bookkeeping: callings to add or delete.",
                     ]),
                     .init("Good to Know", [
-                        "Once something reaches Called or Released it moves to the Exec Secretary automatically for the sacrament-meeting agenda.",
+                        "An item moves between sections as its status advances: Approve (Exec Secretary) → Release/Call (assigned member) → Announce/Sustain (Exec Secretary).",
                         "The share icon copies this exact list as a markdown checklist — paste it into Notes or a message.",
                     ]),
                 ]
@@ -228,7 +230,7 @@ extension HelpTopic {
                 summary: "Sync this ward across the bishopric's iPads.",
                 sections: [
                     .init([
-                        "The owner (bishop) starts sharing and invites the others — Adding a Bishopric Member… walks through the whole invite.",
+                        "The owner (the exec secretary) starts sharing and invites the others — Adding a Bishopric Member… walks through the whole invite.",
                         "Sync Now forces an immediate fetch.",
                     ]),
                     .init("If Something Looks Stuck", [

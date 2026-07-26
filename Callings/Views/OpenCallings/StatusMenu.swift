@@ -57,10 +57,10 @@ struct StatusMenu: View {
             set: { newValue in
                 guard var updated = entry else { return }
                 updated[keyPath: keyPath] = newValue
-                // Selecting a member to call implies Selected status.
+                // Selecting a member to call implies Proposed status.
                 if keyPath == \OpenCalling.memberToBeCalledID {
                     if updated.memberToBeCalledID != nil, updated.callStatus == .none {
-                        updated.callStatus = .selected
+                        updated.callStatus = .proposed
                     }
                 }
                 store.updateOpenCalling(updated)

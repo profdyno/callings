@@ -77,7 +77,7 @@ final class SyncMapperTests: XCTestCase {
         entry.releaseAssignedTo = .stake
         entry.releaseStatus = .released
         entry.memberToBeCalledID = UUID()
-        entry.callStatus = .accepted
+        entry.callStatus = .called
         entry.candidateIDs = [UUID(), UUID()]
         entry.notes = "Speak after sacrament"
         entry.isArchived = true
@@ -95,6 +95,32 @@ final class SyncMapperTests: XCTestCase {
         var normalized = decoded
         normalized?.createdAt = entry.createdAt
         XCTAssertEqual(normalized, entry)
+    }
+
+    /// Records and JSON written before the approval step exist with the old
+    /// status rawValues — they must decode to the new ladder, never throw or
+    /// silently reset (a throw in WardData decoding would wipe local data).
+    func testLegacyStatusValuesDecode() throws {
+        // CloudKit path.
+        var entry = OpenCalling(slotID: UUID())
+        let rec = record(type: "OpenCalling", name: CKRecordMapper.recordName(forOpenCalling: entry.id))
+        CKRecordMapper.populate(rec, from: entry)
+        rec["releaseStatus"] = "Open"
+        rec["callStatus"] = "Accepted"
+        var decoded = CKRecordMapper.openCalling(from: rec)
+        XCTAssertEqual(decoded?.releaseStatus, .proposed)
+        XCTAssertEqual(decoded?.callStatus, .called)
+        rec["callStatus"] = "Selected"
+        XCTAssertEqual(CKRecordMapper.openCalling(from: rec)?.callStatus, .proposed)
+        rec["releaseStatus"] = "Bogus"
+        XCTAssertEqual(CKRecordMapper.openCalling(from: rec)?.releaseStatus, ReleaseStatus.none)
+
+        // JSON path.
+        entry.releaseStatus = .proposed
+        var json = String(data: try JSONEncoder().encode(entry), encoding: .utf8)!
+        json = json.replacingOccurrences(of: "\"Proposed\"", with: "\"Open\"")
+        decoded = try JSONDecoder().decode(OpenCalling.self, from: Data(json.utf8))
+        XCTAssertEqual(decoded?.releaseStatus, .proposed)
     }
 
     func testRecordNameParsing() {

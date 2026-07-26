@@ -195,9 +195,9 @@ enum CKRecordMapper {
         entry.id = id
         entry.assignedTo = (record["assignedTo"] as? String).flatMap(BishopricMember.init(rawValue:)) ?? .unassigned
         entry.releaseAssignedTo = (record["releaseAssignedTo"] as? String).flatMap(BishopricMember.init(rawValue:))
-        entry.releaseStatus = (record["releaseStatus"] as? String).flatMap(ReleaseStatus.init(rawValue:)) ?? .none
+        entry.releaseStatus = (record["releaseStatus"] as? String).map(ReleaseStatus.init(persisted:)) ?? .none
         entry.memberToBeCalledID = (record["memberToBeCalledID"] as? String).flatMap(UUID.init(uuidString:))
-        entry.callStatus = (record["callStatus"] as? String).flatMap(CallStatus.init(rawValue:)) ?? .none
+        entry.callStatus = (record["callStatus"] as? String).map(CallStatus.init(persisted:)) ?? .none
         entry.candidateIDs = (record["candidateIDs"] as? [String] ?? []).compactMap(UUID.init(uuidString:))
         entry.notes = record["notes"] as? String ?? ""
         entry.createdAt = record["createdAt"] as? Date ?? entry.createdAt

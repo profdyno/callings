@@ -38,7 +38,7 @@ struct InviteGuideView: View {
 
     That's it. Anything you change syncs to all of us within a few seconds.
 
-    WHAT YOU CAN DO: work candidate lists, assign who handles releases and calls, and move statuses along (Open/Released, Selected/Accepted). Two things stay with the bishop as owner: importing from LCR and marking things Announced/Sustained after sacrament meeting — those options appear grayed out for you, which is normal.
+    WHAT YOU CAN DO: work candidate lists, assign who handles releases and calls, and move statuses along (Proposed, Released, Called). A few things stay with the exec secretary as owner: importing from LCR, approving proposals, and marking things Announced/Sustained after sacrament meeting — those options appear grayed out for you, which is normal.
 
     IF SOMETHING LOOKS STUCK: open the Sharing screen (two-people icon, top left) and tap Sync Now. If it's really confused, Re-download All Data on that same screen resets your iPad from the shared copy.
     """
