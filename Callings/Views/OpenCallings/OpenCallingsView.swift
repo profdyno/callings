@@ -12,27 +12,7 @@ struct OpenCallingsView: View {
     @State private var filterOrganization: OrganizationKind?
     @State private var filterStage: StageFilter?
     @State private var filterPerson: BishopricMember?
-
-    /// Workflow-stage quick filters: a row matches when EITHER ladder sits
-    /// at that stage.
-    private enum StageFilter: String, CaseIterable, Identifiable {
-        case approve = "Need to Approve"
-        case releaseCall = "Need to Release/Call"
-        case announceSustain = "Need to Announce/Sustain"
-
-        var id: String { rawValue }
-
-        func matches(_ entry: OpenCalling) -> Bool {
-            switch self {
-            case .approve:
-                entry.releaseStatus == .proposed || entry.callStatus == .proposed
-            case .releaseCall:
-                entry.releaseStatus == .approved || entry.callStatus == .approved
-            case .announceSustain:
-                entry.releaseStatus == .released || entry.callStatus == .called
-            }
-        }
-    }
+    @State private var searchText = ""
 
     private var hasActiveFilters: Bool {
         filterOrganization != nil || filterStage != nil || filterPerson != nil
@@ -42,6 +22,7 @@ struct OpenCallingsView: View {
         filterOrganization = nil
         filterStage = nil
         filterPerson = nil
+        searchText = ""
     }
 
     var body: some View {
@@ -79,6 +60,7 @@ struct OpenCallingsView: View {
             }
             .navigationTitle(showArchived ? "Archived Callings" : "Open Callings")
             .navigationBarTitleDisplayMode(.inline)
+            .searchable(text: $searchText, prompt: "Calling or member")
             .appToolbar(help: .openCallings)
             .toolbar {
                 Toggle(isOn: $showArchived) {
@@ -129,7 +111,13 @@ struct OpenCallingsView: View {
             if let filterPerson,
                (row.entry.releaseAssignedTo ?? .unassigned) != filterPerson,
                row.entry.assignedTo != filterPerson { return false }
-            return true
+            let search = searchText.trimmingCharacters(in: .whitespaces)
+            guard !search.isEmpty else { return true }
+            return row.callingName.localizedCaseInsensitiveContains(search)
+                || row.currentMember.localizedCaseInsensitiveContains(search)
+                || row.newMember.localizedCaseInsensitiveContains(search)
+                || row.candidates.localizedCaseInsensitiveContains(search)
+                || row.organization.rawValue.localizedCaseInsensitiveContains(search)
         }
         .sorted {
             if $0.organization.displayOrder != $1.organization.displayOrder {
@@ -144,43 +132,13 @@ struct OpenCallingsView: View {
 
     /// Stage and person toggle buttons plus the Group menu, above the table.
     private var filterBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(StageFilter.allCases) { stage in
-                    toggleChip(stage.rawValue, isOn: filterStage == stage) {
-                        filterStage = filterStage == stage ? nil : stage
-                    }
-                }
-                Divider()
-                    .frame(height: 20)
-                ForEach([BishopricMember.bishop, .firstCounselor, .secondCounselor]) { member in
-                    toggleChip(member.rawValue, isOn: filterPerson == member) {
-                        filterPerson = filterPerson == member ? nil : member
-                    }
-                }
-                Divider()
-                    .frame(height: 20)
-                filterMenu("Group", selection: $filterOrganization, options: OrganizationKind.allCases) { $0.rawValue }
-                if hasActiveFilters {
-                    Button("Clear") { clearFilters() }
-                        .font(.callout)
-                }
+        WorkflowFilterBar(stage: $filterStage, person: $filterPerson) {
+            filterMenu("Group", selection: $filterOrganization, options: OrganizationKind.allCases) { $0.rawValue }
+            if hasActiveFilters {
+                Button("Clear") { clearFilters() }
+                    .font(.callout)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
         }
-    }
-
-    private func toggleChip(_ title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.callout)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(isOn ? Color.accentColor : Color(.systemGray5), in: Capsule())
-                .foregroundStyle(isOn ? .white : .primary)
-        }
-        .buttonStyle(.plain)
     }
 
     private func filterMenu<T: Hashable>(
@@ -318,8 +276,19 @@ struct OpenCallingsView: View {
 
     // MARK: - Archive
 
+    private var archivedEntries: [OpenCalling] {
+        let search = searchText.trimmingCharacters(in: .whitespaces)
+        guard !search.isEmpty else { return store.archivedOpenCallings }
+        return store.archivedOpenCallings.filter { entry in
+            [entry.snapshotCallingName, entry.snapshotOrganization,
+             entry.snapshotPreviousHolder, entry.snapshotNewHolder]
+                .compactMap { $0 }
+                .contains { $0.localizedCaseInsensitiveContains(search) }
+        }
+    }
+
     private var archivedList: some View {
-        List(store.archivedOpenCallings) { entry in
+        List(archivedEntries) { entry in
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text(entry.snapshotCallingName ?? "—")

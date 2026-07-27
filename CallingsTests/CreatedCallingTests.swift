@@ -117,6 +117,23 @@ final class CreatedCallingTests: XCTestCase {
         XCTAssertFalse(markdown.contains("**1st Counselor**"), "empty sections omitted")
     }
 
+    func testMarkdownRendersOnlyProvidedGroups() {
+        // The Actions view passes its FILTERED groups, so the copied
+        // checklist must contain exactly those and nothing else.
+        let item = ActionChecklistBuilder.Item(
+            kind: .call, verb: "Call", member: "Smith, John",
+            calling: "Sunday School Teacher", detail: "Approved",
+            entryID: nil, slotID: nil
+        )
+        let markdown = ActionChecklistBuilder.markdown(
+            groups: [.init(title: "Bishop", items: [item])],
+            date: Date(timeIntervalSince1970: 1_784_000_000)
+        )
+        XCTAssertTrue(markdown.contains("**Bishop**"))
+        XCTAssertTrue(markdown.contains("- [ ] Call Smith, John — Sunday School Teacher (Approved)"))
+        XCTAssertFalse(markdown.contains("Exec Secretary"))
+    }
+
     func testCalledItemBecomesSustainActionForExecSecretary() {
         let store = makeStore()
         var data = store.data

@@ -128,6 +128,7 @@ extension HelpTopic {
                         "Start a change by tapping a calling on the Ward page, or Add to Open Callings from its long-press menu.",
                         "The stage buttons filter to what's waiting: Need to Approve, Need to Release/Call, or Need to Announce/Sustain — a row matches if either its release or its call sits at that stage.",
                         "The Bishop / 1st Counselor / 2nd Counselor buttons filter to changes assigned to that member; combine them with a stage button.",
+                        "Search matches callings, member names, and organizations — it works on the archive too.",
                         "The trash button deletes a change; long-press a row to archive it instead.",
                     ]),
                     .init("Archived", [
@@ -148,9 +149,14 @@ extension HelpTopic {
                         "Select Candidate lists callings with nobody picked yet — tap Pick… to choose.",
                         "Ward Clerk lists LCR bookkeeping: callings to add or delete.",
                     ]),
+                    .init("Finding Things", [
+                        "The stage buttons filter rows by that row's own step: Need to Approve, Need to Release/Call, or Need to Announce/Sustain.",
+                        "The Bishop / 1st Counselor / 2nd Counselor buttons filter to changes assigned to that member.",
+                        "Search matches member names and callings.",
+                    ]),
                     .init("Good to Know", [
                         "An item moves between sections as its status advances: Approve (Exec Secretary) → Release/Call (assigned member) → Announce/Sustain (Exec Secretary).",
-                        "The share icon copies this exact list as a markdown checklist — paste it into Notes or a message.",
+                        "The share icon copies the list exactly as filtered — filter to one counselor and send them just their part.",
                     ]),
                 ]
             )

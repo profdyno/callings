@@ -131,12 +131,18 @@ enum ActionChecklistBuilder {
 
     @MainActor
     static func markdown(from store: WardStore, date: Date = .now) -> String {
+        markdown(groups: groups(from: store), date: date)
+    }
+
+    /// Renders a (possibly filtered) group list — the Actions view passes its
+    /// visible groups so the copied checklist matches what's on screen.
+    static func markdown(groups: [Group], date: Date = .now) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d, yyyy"
         formatter.locale = Locale(identifier: "en_US_POSIX")
         var lines = ["# Calling Actions — \(formatter.string(from: date))"]
 
-        for group in groups(from: store) {
+        for group in groups {
             lines.append("")
             lines.append("**\(group.title)**")
             lines.append(contentsOf: group.items.map(\.markdownLine))

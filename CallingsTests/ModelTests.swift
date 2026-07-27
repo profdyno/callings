@@ -51,6 +51,26 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(entry.releaseStatus, .proposed, "legacy \"Open\" maps to Proposed")
     }
 
+    func testStageFilterMatchesEitherLadder() {
+        var entry = OpenCalling(slotID: UUID())
+        entry.releaseStatus = .proposed
+        entry.callStatus = .none
+        XCTAssertTrue(StageFilter.approve.matches(entry))
+        XCTAssertFalse(StageFilter.releaseCall.matches(entry))
+
+        entry.releaseStatus = .announced
+        entry.callStatus = .approved
+        XCTAssertTrue(StageFilter.releaseCall.matches(entry), "call ladder alone matches")
+        XCTAssertFalse(StageFilter.approve.matches(entry))
+
+        entry.releaseStatus = .released
+        entry.callStatus = .none
+        XCTAssertTrue(StageFilter.announceSustain.matches(entry), "release ladder alone matches")
+
+        entry.callStatus = .called
+        XCTAssertTrue(StageFilter.announceSustain.matches(entry))
+    }
+
     func testNameWithinOrganizationStripsGroupPrefix() {
         let president = CallingDefinition(name: "Elders Quorum President", organization: .eldersQuorum)
         XCTAssertEqual(president.nameWithinOrganization, "President")

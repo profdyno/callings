@@ -9,9 +9,58 @@ struct ActionsView: View {
     @Environment(SyncService.self) private var syncService
     @State private var checklistCopied = false
     @State private var pickerSlotID: UUID?
+    @State private var filterStage: StageFilter?
+    @State private var filterPerson: BishopricMember?
+    @State private var searchText = ""
 
     private var groups: [ActionChecklistBuilder.Group] {
         ActionChecklistBuilder.groups(from: store)
+    }
+
+    private var hasActiveFilters: Bool {
+        filterStage != nil || filterPerson != nil
+    }
+
+    private func clearFilters() {
+        filterStage = nil
+        filterPerson = nil
+        searchText = ""
+    }
+
+    /// The visible checklist: each group's items run through the stage,
+    /// person, and search filters; emptied groups drop out. The copy button
+    /// exports exactly this.
+    private var filteredGroups: [ActionChecklistBuilder.Group] {
+        let search = searchText.trimmingCharacters(in: .whitespaces)
+        return groups.compactMap { group in
+            let items = group.items.filter { matches($0, search: search) }
+            return items.isEmpty ? nil : ActionChecklistBuilder.Group(title: group.title, items: items)
+        }
+    }
+
+    /// Actions rows are one ladder-half each, so the stage buttons match the
+    /// row's OWN status (unlike Open Callings, where either ladder counts).
+    private func matches(_ item: ActionChecklistBuilder.Item, search: String) -> Bool {
+        let entry = item.entryID.flatMap { id in store.data.openCallings.first { $0.id == id } }
+        if let filterStage {
+            switch item.kind {
+            case .release:
+                guard entry?.releaseStatus == filterStage.releaseStatus else { return false }
+            case .call:
+                guard entry?.callStatus == filterStage.callStatus else { return false }
+            case .selectCandidate, .clerk:
+                return false
+            }
+        }
+        if let filterPerson {
+            guard let entry,
+                  (entry.releaseAssignedTo ?? .unassigned) == filterPerson || entry.assignedTo == filterPerson
+            else { return false }
+        }
+        guard !search.isEmpty else { return true }
+        return (item.member?.localizedCaseInsensitiveContains(search) ?? false)
+            || item.calling.localizedCaseInsensitiveContains(search)
+            || item.verb.localizedCaseInsensitiveContains(search)
     }
 
     var body: some View {
@@ -24,15 +73,38 @@ struct ActionsView: View {
                         description: Text("Releases, calls, and LCR updates that need attention will appear here.")
                     )
                 } else {
-                    table
+                    // Filter bar and table stay mounted even when the filters
+                    // match nothing, so there is always a way to clear them.
+                    VStack(spacing: 0) {
+                        WorkflowFilterBar(stage: $filterStage, person: $filterPerson) {
+                            if hasActiveFilters {
+                                Button("Clear") { clearFilters() }
+                                    .font(.callout)
+                            }
+                        }
+                        table
+                            .overlay {
+                                if filteredGroups.isEmpty {
+                                    ContentUnavailableView {
+                                        Label("No Matches", systemImage: "line.3.horizontal.decrease.circle")
+                                    } description: {
+                                        Text("No actions match these filters.")
+                                    } actions: {
+                                        Button("Clear Filters") { clearFilters() }
+                                            .buttonStyle(.borderedProminent)
+                                    }
+                                }
+                            }
+                    }
                 }
             }
             .navigationTitle("Actions")
             .navigationBarTitleDisplayMode(.inline)
+            .searchable(text: $searchText, prompt: "Member or calling")
             .appToolbar(help: .actions)
             .toolbar {
                 Button {
-                    UIPasteboard.general.string = ActionChecklistBuilder.markdown(from: store)
+                    UIPasteboard.general.string = ActionChecklistBuilder.markdown(groups: filteredGroups)
                     checklistCopied = true
                 } label: {
                     Label("Copy Action Checklist", systemImage: "square.and.arrow.up")
@@ -69,7 +141,7 @@ struct ActionsView: View {
     }
 
     private var lines: [Line] {
-        groups.flatMap { [.header($0.title)] + $0.items.map(Line.item) }
+        filteredGroups.flatMap { [.header($0.title)] + $0.items.map(Line.item) }
     }
 
     private var table: some View {
@@ -122,16 +194,22 @@ struct ActionsView: View {
 
     // MARK: - Status editing
 
+    private func entry(for item: ActionChecklistBuilder.Item) -> OpenCalling? {
+        item.entryID.flatMap { id in store.data.openCallings.first { $0.id == id } }
+    }
+
     @ViewBuilder
     private func statusCell(_ item: ActionChecklistBuilder.Item) -> some View {
         switch item.kind {
         case .release:
             statusMenu(item, options: ReleaseStatus.allCases, label: \.rawValue,
+                       color: entry(for: item)?.releaseStatus.color,
                        canSet: { syncService.canSet(releaseStatus: $0) }) { entry, status in
                 entry.releaseStatus = status
             }
         case .call:
             statusMenu(item, options: CallStatus.allCases, label: \.rawValue,
+                       color: entry(for: item)?.callStatus.color,
                        canSet: { syncService.canSet(callStatus: $0) }) { entry, status in
                 entry.callStatus = status
             }
@@ -153,6 +231,7 @@ struct ActionsView: View {
         _ item: ActionChecklistBuilder.Item,
         options: [Status],
         label: KeyPath<Status, String>,
+        color: Color?,
         canSet: @escaping (Status) -> Bool,
         apply: @escaping (inout OpenCalling, Status) -> Void
     ) -> some View {
@@ -170,6 +249,7 @@ struct ActionsView: View {
         } label: {
             HStack(spacing: 3) {
                 Text(item.detail)
+                    .foregroundStyle(color ?? .primary)
                 Image(systemName: "chevron.down")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
