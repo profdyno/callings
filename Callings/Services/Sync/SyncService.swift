@@ -169,7 +169,11 @@ final class SyncService {
     private func enqueueDiff(current: WardData) {
         guard let engine else { return }
         let baseline = stateStore.baseline ?? WardData()
-        let changes = SnapshotDiffer.diff(baseline: baseline, current: current)
+        var changes = SnapshotDiffer.diff(baseline: baseline, current: current)
+        let alreadyDeleting = Set(changes.deletedRecordNames)
+        changes.deletedRecordNames.append(
+            contentsOf: orphanedServerRecordNames(current: current).filter { !alreadyDeleting.contains($0) }
+        )
         guard !changes.isEmpty else { return }
 
         var pending: [CKSyncEngine.PendingRecordZoneChange] = []
@@ -184,6 +188,32 @@ final class SyncService {
         SyncLog.shared.log("enqueue: save=\(changes.savedRecordNames.joined(separator: ",")) delete=\(changes.deletedRecordNames.joined(separator: ","))")
         stateStore.baseline = current
         pendingChangeCount = engine.state.pendingRecordZoneChanges.count
+    }
+
+    /// Records the server still holds that no local model claims any more.
+    /// The baseline diff alone misses these: resetting the baseline (enabling
+    /// sharing, re-enabling after a stop) hides the deletions an import made,
+    /// and the abandoned records then come back on the next full fetch as
+    /// duplicate callings. Only runs on a populated document, so a wipe or a
+    /// half-finished first fetch can never be mistaken for mass deletion.
+    private func orphanedServerRecordNames(current: WardData) -> [String] {
+        guard !current.callingSlots.isEmpty, !current.members.isEmpty else { return [] }
+        let live = Set(
+            current.members.map { CKRecordMapper.recordName(forMember: $0.id) }
+                + current.callingDefinitions.map { CKRecordMapper.recordName(forDefinition: $0.id) }
+                + current.callingSlots.map { CKRecordMapper.recordName(forSlot: $0.id) }
+                + current.openCallings.map { CKRecordMapper.recordName(forOpenCalling: $0.id) }
+        )
+        return stateStore.knownRecordNames.filter { name in
+            guard !live.contains(name), let parsed = CKRecordMapper.parse(recordName: name) else { return false }
+            switch parsed.type {
+            case CKRecordMapper.RecordType.member, CKRecordMapper.RecordType.callingDefinition,
+                 CKRecordMapper.RecordType.callingSlot, CKRecordMapper.RecordType.openCalling:
+                return true
+            default:
+                return false
+            }
+        }
     }
 
     /// On launch: recover any drift between the persisted baseline and the

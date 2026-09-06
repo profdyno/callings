@@ -15,6 +15,7 @@ struct SharingView: View {
     @State private var confirmingReset = false
     @State private var confirmingResync = false
     @State private var resyncing = false
+    @State private var repairReport: WardDataRepair.Report?
 
     var body: some View {
         NavigationStack {
@@ -45,6 +46,28 @@ struct SharingView: View {
                     }
                 }
 
+                Section {
+                    Button {
+                        repairReport = store.repairDuplicates()
+                    } label: {
+                        Label("Check for Duplicate Callings", systemImage: "arrow.triangle.merge")
+                    }
+                    if let repairReport {
+                        Label(
+                            repairReport.isEmpty
+                                ? "No duplicates found."
+                                : repairReport.summary,
+                            systemImage: repairReport.isEmpty ? "checkmark.circle" : "wrench.and.screwdriver"
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(repairReport.isEmpty ? .secondary : .primary)
+                    }
+                } header: {
+                    Text("Repair")
+                } footer: {
+                    Text("Runs automatically at launch. Collapses callings that appear twice, then re-import the Ward Callings report to restore the exact seat counts.")
+                }
+
                 if syncService.role != .solo {
                     Section {
                         NavigationLink {
@@ -58,6 +81,10 @@ struct SharingView: View {
                 if let errorMessage {
                     Section { Text(errorMessage).foregroundStyle(.red) }
                 }
+            }
+            .task {
+                // Surface what the launch pass already collapsed.
+                if repairReport == nil { repairReport = store.lastRepairReport }
             }
             .navigationTitle("Sharing")
             .navigationBarTitleDisplayMode(.inline)

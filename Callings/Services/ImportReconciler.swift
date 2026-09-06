@@ -183,6 +183,10 @@ enum ImportReconciler {
                     organization: row.organization,
                     subgroup: row.subgroup
                 )
+                // Content-derived id: the same calling gets the same record
+                // on every device, so sync updates it instead of adding a
+                // second copy. See StableID.
+                definition.id = StableID.definitionID(importKey: key)
                 definition.isCustom = row.isCustom
                 CallingSeedRules.apply(to: &definition)
                 definitionsByKey[key] = definition
@@ -193,9 +197,15 @@ enum ImportReconciler {
 
         // 2. Resolve holders to members (placeholders for unmatched names).
         var newSlots: [CallingSlot] = []
+        var seatCounts: [UUID: Int] = [:]
         for (order, row) in parsed.rows.enumerated() {
             guard let definition = definitionsByKey[importKey(for: row)] else { continue }
+            // Seat number within this calling, so each seat keeps one identity
+            // across imports and devices.
+            let seat = seatCounts[definition.id, default: 0]
+            seatCounts[definition.id] = seat + 1
             var slot = CallingSlot(definitionID: definition.id, importOrder: order)
+            slot.id = StableID.slotID(definitionID: definition.id, seat: seat)
             slot.sustainedDate = row.sustainedDate
             slot.isSetApart = row.isSetApart
             if let holderName = row.holderName {

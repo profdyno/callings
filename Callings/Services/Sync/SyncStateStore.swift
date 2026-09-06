@@ -80,6 +80,10 @@ final class SyncStateStore {
 
     // MARK: - System fields
 
+    /// Every record name this device has seen on the server. Used to reap
+    /// records the zone still holds but no local model claims.
+    var knownRecordNames: Set<String> { Set(state.systemFields.keys) }
+
     func archiveSystemFields(of record: CKRecord) {
         let archiver = NSKeyedArchiver(requiringSecureCoding: true)
         record.encodeSystemFields(with: archiver)

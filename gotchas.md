@@ -40,6 +40,34 @@ Lessons learned building this app — review before touching the parsers or CI.
   reports "unreadable", re-save the report on the iPad before debugging
   the parser.
 
+## CloudKit sync
+
+- **A synced record's identity must be derived from content, never from a
+  fresh `UUID()`.** Imported callings used to get a new `UUID()` per import,
+  and the CKRecord name comes from the id — so two imports of the same report
+  were two disjoint record sets. `integrate` upserts by id, so it unioned
+  them instead of replacing, and the ward board showed two generations of the
+  same export side by side. `StableID` derives definition ids from the LCR
+  import key and slot ids from definition + seat number, so every device and
+  every import agree on what a record is called.
+- **Every mutation path must notify the sync observer.** `WardStore.apply` —
+  the import commit, the one place that replaces *every* slot — didn't, so an
+  import never enqueued the deletions for the records it retired. They sat in
+  the zone until some full re-fetch replayed them.
+- **The baseline diff alone can't reap abandoned records.** Anything that
+  resets the baseline (enabling sharing, stop-and-restart, resync) hides
+  deletions that were never sent. `orphanedServerRecordNames` compares the
+  archived system-fields keys (every record this device has seen on the
+  server) against the live models, gated on a populated document so a wipe or
+  a half-finished first fetch can't be mistaken for mass deletion.
+- **The bug can lie dormant for weeks.** The orphans only became visible on a
+  "Re-download All Data" / new participant join — six weeks after the code
+  that caused them last changed. When a data bug "starts this week" with no
+  commits that week, look for the operational event that replayed old state.
+- **Repair passes must be deterministic, not just correct.** `WardDataRepair`
+  runs on every launch; because its output depends only on content, every
+  device converges on the same result instead of pushing rival cleanups.
+
 ## SwiftUI (iPadOS)
 
 - **iPadOS `Table` silently drops its FIRST `Section` header** — and

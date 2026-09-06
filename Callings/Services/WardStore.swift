@@ -20,9 +20,31 @@ final class WardStore {
     /// the sync layer as local changes.
     @ObservationIgnored private var isApplyingRemote = false
 
+    /// What the launch repair pass collapsed, for the Sharing screen.
+    private(set) var lastRepairReport: WardDataRepair.Report?
+
     init(persistence: PersistenceService = PersistenceService()) {
         self.persistence = persistence
-        self.data = persistence.load() ?? WardData()
+        // Normalize on load: content-derived record ids and no duplicate
+        // seats. Deterministic, so every device converges on the same result
+        // and the launch diff pushes the cleanup to iCloud.
+        let (normalized, report) = WardDataRepair.normalize(persistence.load() ?? WardData())
+        self.data = normalized
+        if !report.isEmpty {
+            self.lastRepairReport = report
+            persistence.saveNow(normalized)
+        }
+    }
+
+    /// Manual re-run of the repair pass (Sharing → Repair Duplicates).
+    @discardableResult
+    func repairDuplicates() -> WardDataRepair.Report {
+        let (normalized, report) = WardDataRepair.normalize(data)
+        lastRepairReport = report
+        guard !report.isEmpty else { return report }
+        data = normalized
+        save()
+        return report
     }
 
     private func save() {
@@ -308,5 +330,11 @@ final class WardStore {
     func apply(_ newData: WardData) {
         data = newData
         persistence.saveNow(data)
+        // An import replaces every slot. Without this the sync layer never
+        // hears about it, so the records the import retired stay in the
+        // iCloud zone and come back on the next full fetch as duplicates.
+        if !isApplyingRemote {
+            syncObserver?(data)
+        }
     }
 }
