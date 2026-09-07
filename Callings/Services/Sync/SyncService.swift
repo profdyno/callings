@@ -85,6 +85,38 @@ final class SyncService {
         scheduleDiff(immediate: true)
     }
 
+    /// Adopts the ward already sitting in this iCloud account — for a second
+    /// device of the owner's own (a phone beside the iPad), which shares the
+    /// account and therefore the private `WardZone`.
+    ///
+    /// Deliberately does NOT create the zone, touch the CKShare, or push
+    /// anything: the baseline starts at whatever this device already has, so
+    /// an empty phone can never overwrite the ward it is trying to download.
+    /// Returns false when the account holds no ward, leaving the device solo.
+    @discardableResult
+    func adoptExistingWard() async -> Bool {
+        guard role == .solo else { return true }
+        prepareForAdoption()
+        startIfEnabled()
+        await fetchNow()
+
+        guard store.data.callingSlots.isEmpty && store.data.members.isEmpty else { return true }
+        // Nothing came down — this account has no ward. Go back to solo so
+        // the setup screen still offers both routes.
+        stop()
+        stateStore.reset()
+        return false
+    }
+
+    /// The synchronous part of adopting, separated for testability: take the
+    /// owner role, and set the baseline to what this device already holds so
+    /// the first diff has nothing to push.
+    func prepareForAdoption() {
+        stateStore.settings.role = .owner
+        stateStore.settings.zoneOwnerName = nil
+        stateStore.baseline = store.data
+    }
+
     /// Participant enable, after accepting a share into `zoneOwnerName`'s zone.
     func enableAsParticipant(zoneOwnerName: String) {
         stateStore.settings.role = .participant

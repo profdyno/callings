@@ -5,6 +5,7 @@ import SwiftUI
 struct WardCallingsView: View {
     @Environment(WardStore.self) private var store
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(SyncService.self) private var syncService
     /// Tapping a group header drills into the Organizations tab.
     var onDrill: (OrganizationKind) -> Void = { _ in }
 
@@ -44,7 +45,11 @@ struct WardCallingsView: View {
                     ContentUnavailableView(
                         "No Ward Data",
                         systemImage: "person.3",
-                        description: Text("Import the Ward Callings and Member List PDFs from the ••• menu.")
+                        description: Text(
+                            syncService.role == .solo
+                            ? "If this ward is already set up on another of your devices, open Sharing and choose Download My Ward from iCloud.\n\nOtherwise import the Ward Callings and Member List PDFs from the ••• menu."
+                            : "Import the Ward Callings and Member List PDFs from the ••• menu."
+                        )
                     )
                 } else if sizeClass == .compact {
                     compactList

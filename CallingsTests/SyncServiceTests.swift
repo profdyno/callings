@@ -172,6 +172,41 @@ final class SyncServiceTests: XCTestCase {
         XCTAssertEqual(service.stateStore.settings.zoneOwnerName, "_owner")
     }
 
+    /// A second device of the owner's own (a phone beside the iPad) adopts
+    /// the ward already in the account. It must take the owner role WITHOUT
+    /// queueing a push: an empty phone whose baseline started empty would
+    /// diff to nothing, but any later edit would then re-upload its whole
+    /// (empty or partial) state over the real ward.
+    func testAdoptingExistingWardQueuesNoUpload() {
+        let (service, store) = makeService(role: .solo)
+        service.stateStore.baseline = nil
+
+        service.prepareForAdoption()
+
+        XCTAssertEqual(service.stateStore.settings.role, .owner)
+        XCTAssertNil(service.stateStore.settings.zoneOwnerName, "the owner's own zone, not a shared one")
+        XCTAssertEqual(service.stateStore.baseline, store.data)
+        XCTAssertTrue(
+            SnapshotDiffer.diff(baseline: service.stateStore.baseline ?? WardData(), current: store.data).isEmpty,
+            "adopting must never enqueue a push from the joining device"
+        )
+    }
+
+    /// Adopting on a device that already has local data must still not push
+    /// it — the ward in iCloud is the truth being joined.
+    func testAdoptingWithLocalDataStillQueuesNoUpload() {
+        let (service, store) = makeService(role: .solo)
+        var data = WardData()
+        data.members = [Member(name: "Local, Only")]
+        store.apply(data)
+
+        service.prepareForAdoption()
+
+        XCTAssertTrue(
+            SnapshotDiffer.diff(baseline: service.stateStore.baseline ?? WardData(), current: store.data).isEmpty
+        )
+    }
+
     func testReconcileArchivesDanglingEntriesAfterRemoteImport() {
         let (service, store) = makeService(role: .participant)
         let definition = CallingDefinition(name: "Ward Clerk", organization: .bishopric)

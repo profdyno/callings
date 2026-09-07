@@ -16,6 +16,7 @@ struct SharingView: View {
     @State private var confirmingResync = false
     @State private var resyncing = false
     @State private var repairReport: WardDataRepair.Report?
+    @State private var adopting = false
 
     var body: some View {
         NavigationStack {
@@ -134,21 +135,40 @@ struct SharingView: View {
     }
 
     private var soloSection: some View {
-        Section {
-            Button {
-                enableSharing()
-            } label: {
-                if busy {
-                    ProgressView()
-                } else {
-                    Label("Start Sharing This Ward…", systemImage: "person.badge.plus")
+        Group {
+            Section {
+                Button {
+                    adopt()
+                } label: {
+                    if adopting {
+                        ProgressView()
+                    } else {
+                        Label("Download My Ward from iCloud", systemImage: "icloud.and.arrow.down")
+                    }
                 }
+                .disabled(adopting || busy)
+            } header: {
+                Text("Another of My Devices")
+            } footer: {
+                Text("Already set this ward up on another iPad or iPhone signed in to the same Apple Account? This pulls it down here — no import, and it doesn't change anyone's invitation.")
             }
-            .disabled(busy)
-        } header: {
-            Text("Share with the Bishopric")
-        } footer: {
-            Text("Your ward data is uploaded to your iCloud and stays there. You invite up to 4 others; they can work candidates and callings, while importing and the final Announced/Sustained steps stay with you.\n\nIf someone shared a ward with you, open the invitation link they sent — this screen isn't needed.")
+
+            Section {
+                Button {
+                    enableSharing()
+                } label: {
+                    if busy {
+                        ProgressView()
+                    } else {
+                        Label("Start Sharing This Ward…", systemImage: "person.badge.plus")
+                    }
+                }
+                .disabled(adopting || busy)
+            } header: {
+                Text("Share with the Bishopric")
+            } footer: {
+                Text("For the device that already holds the ward. Its data is uploaded to your iCloud and stays there. You invite up to 4 others; they can work candidates and callings, while importing and the final Announced/Sustained steps stay with you.\n\nIf someone shared a ward with you, open the invitation link they sent — this screen isn't needed.")
+            }
         }
     }
 
@@ -229,6 +249,25 @@ struct SharingView: View {
         case .idle: Text("Up to date")
         case .syncing: Text("Syncing…")
         case .error(let message): Text(message).foregroundStyle(.red)
+        }
+    }
+
+    /// Second device of the owner's own: adopt the ward already in this
+    /// iCloud account instead of importing or re-sharing.
+    private func adopt() {
+        adopting = true
+        errorMessage = nil
+        Task {
+            let status = try? await SyncConstants.container.accountStatus()
+            guard status == .available else {
+                errorMessage = "Sign in to iCloud in Settings to download your ward."
+                adopting = false
+                return
+            }
+            if await !syncService.adoptExistingWard() {
+                errorMessage = "No ward found in this Apple Account. Start sharing on the device that already has the ward, then try again here."
+            }
+            adopting = false
         }
     }
 
