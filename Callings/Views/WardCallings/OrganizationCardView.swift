@@ -27,6 +27,50 @@ enum HomeGroup: Hashable, Identifiable {
         case .activitiesCommittee: return .otherCallings
         }
     }
+
+    /// The seats belonging to this group. Activities Committee is carved out
+    /// of Other Callings, so the two split the same organization.
+    @MainActor
+    func slots(in store: WardStore) -> [CallingSlot] {
+        let all = store.slots(in: organization)
+        switch self {
+        case .activitiesCommittee:
+            return all.filter { store.definition(for: $0)?.isActivitiesCommittee == true }
+        case .org(.otherCallings):
+            return all.filter { store.definition(for: $0)?.isActivitiesCommittee != true }
+        case .org:
+            return all
+        }
+    }
+
+    /// Whether subgroup headings are meaningful for this group.
+    var showsSubgroups: Bool {
+        if case .activitiesCommittee = self { return false }
+        return true
+    }
+
+    /// Sections in subgroup display order (EQ/RS: presidency, Ministering,
+    /// Teachers, then the imported order — stable for equal ranks).
+    @MainActor
+    func sections(in store: WardStore) -> [(subgroup: String?, slots: [CallingSlot])] {
+        var sections: [(subgroup: String?, slots: [CallingSlot])] = []
+        for slot in slots(in: store) {
+            let subgroup = store.definition(for: slot)?.subgroup
+            if let index = sections.lastIndex(where: { $0.subgroup == subgroup }) {
+                sections[index].slots.append(slot)
+            } else {
+                sections.append((subgroup, [slot]))
+            }
+        }
+        return sections
+            .enumerated()
+            .sorted { a, b in
+                let rankA = CallingDefinition.subgroupRank(a.element.subgroup, organization: organization)
+                let rankB = CallingDefinition.subgroupRank(b.element.subgroup, organization: organization)
+                return rankA != rankB ? rankA < rankB : a.offset < b.offset
+            }
+            .map(\.element)
+    }
 }
 
 /// One group's card on the home board: header plus a two-column grid of
@@ -39,22 +83,6 @@ struct OrganizationCardView: View {
     @Binding var detailMemberID: UUID?
     var onDrill: (OrganizationKind) -> Void = { _ in }
 
-    var slots: [CallingSlot] {
-        let all = store.slots(in: group.organization)
-        switch group {
-        case .activitiesCommittee:
-            return all.filter { store.definition(for: $0)?.isActivitiesCommittee == true }
-        case .org(.otherCallings):
-            return all.filter { store.definition(for: $0)?.isActivitiesCommittee != true }
-        case .org:
-            return all
-        }
-    }
-
-    private var showsSubgroups: Bool {
-        if case .activitiesCommittee = group { return false }
-        return true
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -73,8 +101,8 @@ struct OrganizationCardView: View {
             .buttonStyle(.plain)
 
             Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 3) {
-                ForEach(groupedBySubgroup(slots), id: \.subgroup) { section in
-                    if showsSubgroups, let subgroup = section.subgroup {
+                ForEach(group.sections(in: store), id: \.subgroup) { section in
+                    if group.showsSubgroups, let subgroup = section.subgroup {
                         GridRow {
                             Text(CallingDefinition.subgroupDisplayName(subgroup, organization: group.organization))
                                 .font(.caption.smallCaps())
@@ -96,27 +124,5 @@ struct OrganizationCardView: View {
         }
         .padding(10)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
-    }
-
-    /// Sections in subgroup display order (EQ/RS: presidency, Ministering,
-    /// Teachers, then the imported order — stable for equal ranks).
-    private func groupedBySubgroup(_ slots: [CallingSlot]) -> [(subgroup: String?, slots: [CallingSlot])] {
-        var sections: [(subgroup: String?, slots: [CallingSlot])] = []
-        for slot in slots {
-            let subgroup = store.definition(for: slot)?.subgroup
-            if let index = sections.lastIndex(where: { $0.subgroup == subgroup }) {
-                sections[index].slots.append(slot)
-            } else {
-                sections.append((subgroup, [slot]))
-            }
-        }
-        return sections
-            .enumerated()
-            .sorted { a, b in
-                let rankA = CallingDefinition.subgroupRank(a.element.subgroup, organization: group.organization)
-                let rankB = CallingDefinition.subgroupRank(b.element.subgroup, organization: group.organization)
-                return rankA != rankB ? rankA < rankB : a.offset < b.offset
-            }
-            .map(\.element)
     }
 }

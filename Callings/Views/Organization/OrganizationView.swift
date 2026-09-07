@@ -5,6 +5,7 @@ import SwiftUI
 /// and candidates. Interacting with a row starts its open-calling entry.
 struct OrganizationView: View {
     @Environment(WardStore.self) private var store
+    @Environment(\.horizontalSizeClass) private var sizeClass
     let organization: OrganizationKind
     @State private var pickerSlot: CallingSlot?
     @State private var editingDefinition: CallingDefinition?
@@ -54,6 +55,31 @@ struct OrganizationView: View {
     }
 
     var body: some View {
+        Group {
+            if sizeClass == .compact { compactList } else { table }
+        }
+        .navigationTitle(organization.rawValue)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            HelpButton(topic: .organizations)
+            Button {
+                addingCalling = true
+            } label: {
+                Label("New Calling", systemImage: "plus")
+            }
+        }
+        .sheet(isPresented: $addingCalling) {
+            AddCallingSheet(organization: organization)
+        }
+        .sheet(item: $pickerSlot) { slot in
+            CandidatePickerSheet(slotID: slot.id)
+        }
+        .sheet(item: $editingDefinition) { definition in
+            CallingEditorSheet(definition: definition)
+        }
+    }
+
+    private var table: some View {
         Table(of: Row.self) {
             TableColumn("Calling") { row in
                 HStack(spacing: 6) {
@@ -125,24 +151,74 @@ struct OrganizationView: View {
                 }
             }
         }
-        .navigationTitle(organization.rawValue)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            HelpButton(topic: .organizations)
-            Button {
-                addingCalling = true
-            } label: {
-                Label("New Calling", systemImage: "plus")
+    }
+
+    /// iPhone: the six columns stack into one list row, sectioned by subgroup.
+    /// The cells are the same views the table uses, so status editing and its
+    /// role gating are unchanged.
+    private var compactList: some View {
+        List {
+            ForEach(sections, id: \.subgroup) { section in
+                Section(section.subgroup.map {
+                    CallingDefinition.subgroupDisplayName($0, organization: organization)
+                } ?? organization.rawValue) {
+                    ForEach(section.rows) { row in
+                        compactRow(row)
+                    }
+                }
             }
         }
-        .sheet(isPresented: $addingCalling) {
-            AddCallingSheet(organization: organization)
+    }
+
+    private func compactRow(_ row: Row) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            CompactRowHeadline(
+                title: row.definition.nameWithinOrganization,
+                titleColor: row.definition.isMarkedForDeletion ? .red
+                    : row.definition.isPending ? .orange
+                    : (row.entry != nil ? .red : .primary),
+                isStruckThrough: row.definition.isMarkedForDeletion
+            )
+            LabeledLine("Holder") {
+                ReleaseStatusCell(currentName: row.currentName, memberID: row.slot.memberID, entry: row.entry) {
+                    store.openCallingEntry(for: row.slot)
+                }
+            }
+            // The rest of the workflow only means something once a calling
+            // change is under way — five "—" lines per calling would bury the
+            // list on a phone. Tapping the holder starts one.
+            if row.entry != nil {
+                LabeledLine("Assigned") {
+                    AssignedCell(assigned: row.entry?.releaseAssignedTo) { member in
+                        var updated = store.openCallingEntry(for: row.slot)
+                        updated.releaseAssignedTo = member
+                        store.updateOpenCalling(updated)
+                    }
+                }
+                LabeledLine("Candidates") {
+                    CandidatesCell(entry: row.entry) { pickerSlot = row.slot }
+                }
+                LabeledLine("To call") {
+                    ToBeCalledCell(entry: row.entry) {
+                        store.openCallingEntry(for: row.slot)
+                    }
+                }
+                LabeledLine("Assigned") {
+                    AssignedCell(assigned: row.entry?.assignedTo) { member in
+                        var updated = store.openCallingEntry(for: row.slot)
+                        updated.assignedTo = member
+                        store.updateOpenCalling(updated)
+                    }
+                }
+            }
         }
-        .sheet(item: $pickerSlot) { slot in
-            CandidatePickerSheet(slotID: slot.id)
-        }
-        .sheet(item: $editingDefinition) { definition in
-            CallingEditorSheet(definition: definition)
+        .compactRowLayout()
+        .swipeActions(edge: .trailing) {
+            Button {
+                editingDefinition = row.definition
+            } label: {
+                Label("Criteria", systemImage: "slider.horizontal.3")
+            }
         }
     }
 }

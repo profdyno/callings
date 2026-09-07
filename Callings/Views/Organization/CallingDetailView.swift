@@ -5,6 +5,7 @@ import SwiftUI
 struct CallingDetailView: View {
     @Environment(WardStore.self) private var store
     @Environment(SyncService.self) private var syncService
+    @Environment(\.horizontalSizeClass) private var sizeClass
     let slotID: UUID
     @State private var showingPicker = false
     @State private var editingDefinition: CallingDefinition?
@@ -14,17 +15,34 @@ struct CallingDetailView: View {
     private var openEntry: OpenCalling? { store.openCalling(forSlot: slotID) }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            infoColumn
-                .frame(width: 300)
-            CandidatesColumnView(slotID: slotID, showingPicker: $showingPicker)
-                .frame(maxWidth: .infinity)
-            MemberColumnView(mode: .needCallings)
-                .frame(maxWidth: .infinity)
-            MemberColumnView(mode: .withCallings)
-                .frame(maxWidth: .infinity)
+        Group {
+            if sizeClass == .compact {
+                // 300pt + three flexible columns can't fit a phone; the same
+                // columns stack instead.
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        infoColumn
+                        CandidatesColumnView(slotID: slotID, showingPicker: $showingPicker)
+                        MemberColumnView(mode: .needCallings)
+                        MemberColumnView(mode: .withCallings)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                }
+            } else {
+                HStack(alignment: .top, spacing: 12) {
+                    infoColumn
+                        .frame(width: 300)
+                    CandidatesColumnView(slotID: slotID, showingPicker: $showingPicker)
+                        .frame(maxWidth: .infinity)
+                    MemberColumnView(mode: .needCallings)
+                        .frame(maxWidth: .infinity)
+                    MemberColumnView(mode: .withCallings)
+                        .frame(maxWidth: .infinity)
+                }
+                .padding(12)
+            }
         }
-        .padding(12)
         .navigationTitle(definition?.name ?? "Calling")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

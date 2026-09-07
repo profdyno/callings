@@ -5,6 +5,7 @@ import SwiftUI
 /// detail sheet; the tag icon manages the shared tag list.
 struct MembersView: View {
     @Environment(WardStore.self) private var store
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var searchText = ""
     @State private var detailMemberID: UUID?
     @State private var managingTags = false
@@ -40,49 +41,8 @@ struct MembersView: View {
 
     var body: some View {
         NavigationStack {
-            Table(rows) {
-                TableColumn("Name") { row in
-                    Button {
-                        detailMemberID = row.member.id
-                    } label: {
-                        Text(row.member.name)
-                            .foregroundStyle(.primary)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .width(min: 150, ideal: 190)
-
-                TableColumn("Gender") { row in
-                    Text(row.member.gender.map(\.rawValue) ?? "—")
-                }
-                .width(min: 50, ideal: 60)
-
-                TableColumn("Age") { row in
-                    Text(row.member.age.map(String.init) ?? "—")
-                }
-                .width(min: 40, ideal: 50)
-
-                TableColumn("Class") { row in
-                    Text(row.classes)
-                        .font(.callout)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .width(min: 140, ideal: 200)
-
-                TableColumn("Callings") { row in
-                    Text(row.callings)
-                        .font(.callout)
-                        .foregroundStyle(row.callings.isEmpty ? Color.secondary : Color.primary)
-                        .lineLimit(3)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .width(min: 170, ideal: 260)
-
-                TableColumn("Tag") { row in
-                    CategoryMenu(member: row.member)
-                }
-                .width(min: 90, ideal: 120)
+            Group {
+                if sizeClass == .compact { compactList } else { table }
             }
             .searchable(text: $searchText, prompt: "Name, class, or tag")
             .navigationTitle("Members")
@@ -105,6 +65,81 @@ struct MembersView: View {
             }
         }
     }
+
+    private var table: some View {
+        Table(rows) {
+            TableColumn("Name") { row in
+                Button {
+                    detailMemberID = row.member.id
+                } label: {
+                    Text(row.member.name)
+                        .foregroundStyle(.primary)
+                }
+                .buttonStyle(.plain)
+            }
+            .width(min: 150, ideal: 190)
+
+            TableColumn("Gender") { row in
+                Text(row.member.gender.map(\.rawValue) ?? "—")
+            }
+            .width(min: 50, ideal: 60)
+
+            TableColumn("Age") { row in
+                Text(row.member.age.map(String.init) ?? "—")
+            }
+            .width(min: 40, ideal: 50)
+
+            TableColumn("Class") { row in
+                Text(row.classes)
+                    .font(.callout)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .width(min: 140, ideal: 200)
+
+            TableColumn("Callings") { row in
+                Text(row.callings)
+                    .font(.callout)
+                    .foregroundStyle(row.callings.isEmpty ? Color.secondary : Color.primary)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .width(min: 170, ideal: 260)
+
+            TableColumn("Tag") { row in
+                CategoryMenu(member: row.member)
+            }
+            .width(min: 90, ideal: 120)
+        }
+    }
+
+    /// iPhone: `Table` shows only the Name column in compact width, so the
+    /// other five stack into the row instead.
+    private var compactList: some View {
+        List(rows) { row in
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline) {
+                    CompactRowHeadline(title: row.member.name, subtitle: demographics(row))
+                    CategoryMenu(member: row.member)
+                }
+                if !row.classes.isEmpty {
+                    LabeledLine("Class", row.classes)
+                }
+                LabeledLine("Callings", row.callings.isEmpty ? nil : row.callings, placeholder: "None")
+            }
+            .compactRowLayout()
+            .contentShape(Rectangle())
+            .onTapGesture { detailMemberID = row.member.id }
+        }
+    }
+
+    /// "F · 34" under the name; either half may be missing.
+    private func demographics(_ row: Row) -> String {
+        [row.member.gender.map(\.rawValue), row.member.age.map(String.init)]
+            .compactMap { $0 }
+            .joined(separator: " · ")
+    }
+
 }
 
 /// Manage the shared member-tag list: built-in tags are fixed; custom tags

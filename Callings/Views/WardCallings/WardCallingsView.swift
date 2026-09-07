@@ -4,6 +4,7 @@ import SwiftUI
 /// into place), each column scrolling vertically on its own.
 struct WardCallingsView: View {
     @Environment(WardStore.self) private var store
+    @Environment(\.horizontalSizeClass) private var sizeClass
     /// Tapping a group header drills into the Organizations tab.
     var onDrill: (OrganizationKind) -> Void = { _ in }
 
@@ -11,6 +12,8 @@ struct WardCallingsView: View {
     @State private var pickerSlot: CallingSlot?
     @State private var detailMemberID: UUID?
     @State private var addingCalling = false
+    /// Groups collapsed by the user in the compact (iPhone) list.
+    @State private var collapsedGroups: Set<String> = []
 
     private let columnSpacing: CGFloat = 12
 
@@ -43,6 +46,8 @@ struct WardCallingsView: View {
                         systemImage: "person.3",
                         description: Text("Import the Ward Callings and Member List PDFs from the ••• menu.")
                     )
+                } else if sizeClass == .compact {
+                    compactList
                 } else {
                     board
                 }
@@ -76,6 +81,67 @@ struct WardCallingsView: View {
                 MemberDetailSheet(memberID: memberID)
             }
         }
+    }
+
+    /// iPhone: one scrolling list, an expandable section per group, in the
+    /// same order the board reads left to right.
+    private var compactList: some View {
+        List {
+            ForEach(visibleColumns.flatMap { $0 }) { group in
+                Section(isExpanded: expansion(of: group)) {
+                    ForEach(group.sections(in: store), id: \.subgroup) { section in
+                        if group.showsSubgroups, let subgroup = section.subgroup {
+                            Text(CallingDefinition.subgroupDisplayName(subgroup, organization: group.organization))
+                                .font(.caption.smallCaps())
+                                .foregroundStyle(.secondary)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 2, trailing: 16))
+                        }
+                        ForEach(section.slots) { slot in
+                            CompactCallingRow(
+                                slot: slot,
+                                editingDefinition: $editingDefinition,
+                                pickerSlot: $pickerSlot,
+                                detailMemberID: $detailMemberID
+                            )
+                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                        }
+                    }
+                } header: {
+                    Button {
+                        onDrill(group.organization)
+                    } label: {
+                        HStack {
+                            Text(group.title)
+                            Spacer()
+                            Text("\(group.slots(in: store).count)")
+                                .foregroundStyle(.secondary)
+                            Image(systemName: "chevron.right")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .listStyle(.sidebar)
+        // The board is dense on iPad; keep the phone list from doubling its height.
+        .environment(\.defaultMinListRowHeight, 32)
+    }
+
+    /// Section expansion, defaulting to open.
+    private func expansion(of group: HomeGroup) -> Binding<Bool> {
+        Binding(
+            get: { !collapsedGroups.contains(group.id) },
+            set: { isExpanded in
+                if isExpanded {
+                    collapsedGroups.remove(group.id)
+                } else {
+                    collapsedGroups.insert(group.id)
+                }
+            }
+        )
     }
 
     private var board: some View {
@@ -116,29 +182,52 @@ struct WardCallingsView: View {
 /// Highlight filter controls shown in the toolbar.
 struct FilterBar: ToolbarContent {
     @Environment(WardStore.self) private var store
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
             @Bindable var store = store
-            Toggle(isOn: $store.highlightOpenCallings) {
-                Label("Vacant & Open", systemImage: "exclamationmark.circle")
-            }
-            .toggleStyle(.button)
-
-            Toggle(isOn: $store.highlightTenure) {
-                Label("Over \(store.tenureThresholdMonths) mo", systemImage: "clock")
-            }
-            .toggleStyle(.button)
-
-            Menu {
-                Picker("Months", selection: $store.tenureThresholdMonths) {
-                    ForEach([6, 12, 18, 24, 36, 48, 60], id: \.self) { months in
-                        Text("\(months) months").tag(months)
+            if sizeClass == .compact {
+                // Three separate controls don't fit a phone navigation bar.
+                Menu {
+                    Toggle(isOn: $store.highlightOpenCallings) {
+                        Label("Vacant & Open", systemImage: "exclamationmark.circle")
                     }
+                    Toggle(isOn: $store.highlightTenure) {
+                        Label("Over \(store.tenureThresholdMonths) mo", systemImage: "clock")
+                    }
+                    tenurePicker(store: store)
+                } label: {
+                    Label("Highlights", systemImage: store.highlightOpenCallings || store.highlightTenure
+                          ? "line.3.horizontal.decrease.circle.fill"
+                          : "line.3.horizontal.decrease.circle")
                 }
-            } label: {
-                Text("\(store.tenureThresholdMonths) mo")
-                    .font(.callout.weight(.medium))
+            } else {
+                Toggle(isOn: $store.highlightOpenCallings) {
+                    Label("Vacant & Open", systemImage: "exclamationmark.circle")
+                }
+                .toggleStyle(.button)
+
+                Toggle(isOn: $store.highlightTenure) {
+                    Label("Over \(store.tenureThresholdMonths) mo", systemImage: "clock")
+                }
+                .toggleStyle(.button)
+
+                Menu {
+                    tenurePicker(store: store)
+                } label: {
+                    Text("\(store.tenureThresholdMonths) mo")
+                        .font(.callout.weight(.medium))
+                }
+            }
+        }
+    }
+
+    private func tenurePicker(store: WardStore) -> some View {
+        @Bindable var store = store
+        return Picker("Months", selection: $store.tenureThresholdMonths) {
+            ForEach([6, 12, 18, 24, 36, 48, 60], id: \.self) { months in
+                Text("\(months) months").tag(months)
             }
         }
     }

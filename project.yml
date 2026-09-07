@@ -29,6 +29,10 @@ targets:
         CKSharingSupported: true
         UIBackgroundModes:
           - remote-notification
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         UISupportedInterfaceOrientations~ipad:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationPortraitUpsideDown
@@ -51,7 +55,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.$(DEVELOPMENT_TEAM).callings.Callings
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
-        TARGETED_DEVICE_FAMILY: "2"
+        TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: ""
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

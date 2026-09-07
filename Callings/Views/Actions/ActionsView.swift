@@ -7,6 +7,7 @@ import SwiftUI
 struct ActionsView: View {
     @Environment(WardStore.self) private var store
     @Environment(SyncService.self) private var syncService
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var checklistCopied = false
     @State private var pickerSlotID: UUID?
     @State private var filterStage: StageFilter?
@@ -82,7 +83,9 @@ struct ActionsView: View {
                                     .font(.callout)
                             }
                         }
-                        table
+                        Group {
+                            if sizeClass == .compact { compactList } else { table }
+                        }
                             .overlay {
                                 if filteredGroups.isEmpty {
                                     ContentUnavailableView {
@@ -142,6 +145,31 @@ struct ActionsView: View {
 
     private var lines: [Line] {
         filteredGroups.flatMap { [.header($0.title)] + $0.items.map(Line.item) }
+    }
+
+    /// iPhone: `Table` shows only its first column in compact width, so the
+    /// same four cells stack in a list row instead — and the group titles can
+    /// be real section headers here (the iPadOS first-header bug is a Table
+    /// problem, not a List one).
+    private var compactList: some View {
+        List {
+            ForEach(filteredGroups, id: \.title) { group in
+                Section(group.title) {
+                    ForEach(group.items) { item in
+                        VStack(alignment: .leading, spacing: 4) {
+                            CompactRowHeadline(title: item.verb, subtitle: item.calling)
+                            LabeledLine("Member", item.member)
+                            LabeledLine("Status") { statusCell(item) }
+                        }
+                        .compactRowLayout()
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if let slotID = item.slotID { pickerSlotID = slotID }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private var table: some View {

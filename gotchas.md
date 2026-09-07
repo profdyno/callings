@@ -82,6 +82,29 @@ Lessons learned building this app — review before touching the parsers or CI.
   instead of wrapping** (inconsistently — some lines wrap, some don't).
   Fix: `.fixedSize(horizontal: false, vertical: true)` on the Text.
 
+## iPhone / compact width
+
+- **SwiftUI `Table` renders ONLY its first column in compact width.** Not a
+  narrower table — the other columns simply vanish. Open Callings would have
+  shown nothing but its 28pt icon column on a phone. Every `Table` view needs
+  a `List`-of-rows alternative behind
+  `@Environment(\.horizontalSizeClass)`; build it from the same cell views
+  (`ReleaseStatusCell`, `AssignedCell`, `CandidatesCell`, `ToBeCalledCell`,
+  `StatusMenu`) so role gating and the status ladders can't drift apart.
+- **A `GridRow` body can't be reused outside a `Grid`.** `CallingRowView` was
+  a `GridRow`, so the phone list couldn't use it. Split the presentation into
+  a model plus per-cell views; the grid composes them in a `GridRow`, the list
+  in an `HStack`, and neither owns the styling.
+- **`HomeGroup` helpers that read the store need `@MainActor`** — `WardStore`
+  is main-actor isolated, so a plain `func slots(in store:)` on a nonisolated
+  enum won't compile.
+- **Don't port the iPad's five-column workflow row verbatim.** Showing
+  Assigned / Candidates / To call / Assigned as "—" for every quiet calling
+  put three callings on a screen; hiding them until an entry exists puts six.
+- **List rows are far looser than a `Grid`.** The ward board uses
+  `verticalSpacing: 3`; the equivalent list needs explicit `listRowInsets`
+  and `defaultMinListRowHeight` or it reads at half the density.
+
 ## Build / CI
 
 - Bare `/regex/` literals don't compile in Swift 5 mode; use `#/regex/#`.

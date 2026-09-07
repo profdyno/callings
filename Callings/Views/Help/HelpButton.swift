@@ -3,6 +3,7 @@ import SwiftUI
 /// Toolbar "?" button that pops the help for one view or sheet.
 struct HelpButton: View {
     let topic: HelpTopic
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var showing = false
 
     var body: some View {
@@ -12,8 +13,10 @@ struct HelpButton: View {
             Label("Help", systemImage: "questionmark.circle")
         }
         .popover(isPresented: $showing) {
-            HelpPopover(content: topic.content)
-                .presentationCompactAdaptation(.popover)
+            // A 420pt popover is wider than a phone — let it become a sheet
+            // in compact width instead.
+            HelpPopover(content: topic.content, isCompact: sizeClass == .compact)
+                .presentationCompactAdaptation(sizeClass == .compact ? .sheet : .popover)
         }
         .task {
             // "-help" launch arg auto-opens the visible view's help so
@@ -28,6 +31,7 @@ struct HelpButton: View {
 
 private struct HelpPopover: View {
     let content: HelpContent
+    var isCompact = false
 
     var body: some View {
         // Short topics fit as-is; long ones scroll.
@@ -35,8 +39,8 @@ private struct HelpPopover: View {
             body_
             ScrollView { body_ }
         }
-        .frame(width: 420)
-        .frame(maxHeight: 580)
+        .frame(width: isCompact ? nil : 420)
+        .frame(maxHeight: isCompact ? nil : 580)
     }
 
     private var body_: some View {

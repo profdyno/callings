@@ -5,6 +5,7 @@ import SwiftUI
 struct OpenCallingsView: View {
     @Environment(WardStore.self) private var store
     @Environment(SyncService.self) private var syncService
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var showArchived = false
     @State private var pickerEntry: OpenCalling?
     @State private var editingDefinition: CallingDefinition?
@@ -42,7 +43,9 @@ struct OpenCallingsView: View {
                     // match nothing, so there is always a way to clear them.
                     VStack(spacing: 0) {
                         filterBar
-                        table
+                        Group {
+                            if sizeClass == .compact { compactList } else { table }
+                        }
                             .overlay {
                                 if rows.isEmpty {
                                     ContentUnavailableView {
@@ -166,6 +169,72 @@ struct OpenCallingsView: View {
     private func definition(for entry: OpenCalling) -> CallingDefinition? {
         guard let slot = store.slotsByID[entry.slotID] else { return nil }
         return store.definition(for: slot)
+    }
+
+    /// iPhone: the eight columns stack into one list row. Every cell view is
+    /// the same one the table uses, so the status ladders and their role
+    /// gating behave identically.
+    private var compactList: some View {
+        List {
+            ForEach(rows) { row in
+                let rowDefinition = definition(for: row.entry)
+                VStack(alignment: .leading, spacing: 4) {
+                    CompactRowHeadline(
+                        title: row.callingName,
+                        subtitle: subtitleText(row),
+                        titleColor: rowDefinition?.isPending == true ? .orange : .red,
+                        isStruckThrough: rowDefinition?.isMarkedForDeletion == true
+                    )
+                    LabeledLine("Release") {
+                        ReleaseStatusCell(
+                            currentName: row.currentMember,
+                            memberID: store.slotsByID[row.entry.slotID]?.memberID,
+                            entry: row.entry
+                        ) { row.entry }
+                    }
+                    LabeledLine("Assigned") {
+                        AssignedCell(assigned: row.entry.releaseAssignedTo) { member in
+                            update(row.entry) { $0.releaseAssignedTo = member }
+                        }
+                    }
+                    LabeledLine("Candidates") {
+                        CandidatesCell(entry: row.entry) { pickerEntry = row.entry }
+                    }
+                    LabeledLine("To call") {
+                        ToBeCalledCell(entry: row.entry) { row.entry }
+                    }
+                    LabeledLine("Assigned") {
+                        AssignedCell(assigned: row.entry.assignedTo) { member in
+                            update(row.entry) { $0.assignedTo = member }
+                        }
+                    }
+                }
+                .compactRowLayout()
+                .swipeActions(edge: .trailing) {
+                    if syncService.canDeleteOpenCallings {
+                        Button(role: .destructive) {
+                            store.removeOpenCalling(row.entry.id)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                    Button {
+                        editingDefinition = rowDefinition
+                    } label: {
+                        Label("Criteria", systemImage: "slider.horizontal.3")
+                    }
+                }
+            }
+        }
+    }
+
+    /// "Organization · Subgroup" under the calling name.
+    private func subtitleText(_ row: Row) -> String {
+        guard let subgroup = definition(for: row.entry)?.subgroup else {
+            return row.organization.rawValue
+        }
+        let name = CallingDefinition.subgroupDisplayName(subgroup, organization: row.organization)
+        return "\(row.organization.rawValue) · \(name)"
     }
 
     private var table: some View {
